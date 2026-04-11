@@ -1,55 +1,76 @@
+import { apiClient, tokenStorage } from './apiClient'
+import { authService } from './authService'
 import { users, currentUser } from '../mocks/users.mock'
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+/**
+ * User service.
+ *
+ * Auth-related methods are delegated to authService so there is a
+ * single source of truth for session handling. Profile and "me"
+ * endpoints talk to the real backend. Other list/search helpers
+ * still fall back to the in-repo mocks until the corresponding UI
+ * is wired up.
+ */
 export const userService = {
+  // --- auth passthrough (kept for backwards compatibility) -----------------
   async login(email, password) {
-    await delay(800)
-    const user = users.find((u) => u.email === email && u.password === password)
-    if (!user) {
-      throw new Error('Invalid email or password')
-    }
-    localStorage.setItem('currentUser', JSON.stringify(user))
-    return { user, token: 'mock-jwt-token-' + user.id }
+    const data = await authService.login(email, password)
+    return { user: data.user, token: data.token }
   },
 
   async register(data) {
-    await delay(800)
-    const exists = users.find((u) => u.email === data.email)
-    if (exists) {
-      throw new Error('Email already registered')
-    }
-    const newUser = {
-      id: 'user-' + Date.now(),
-      name: data.name,
-      email: data.email,
-      password: data.password,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.email}`,
-      status: 'online',
-      bio: '',
-      role: 'Member',
-      createdAt: new Date().toISOString(),
-    }
-    users.push(newUser)
-    localStorage.setItem('currentUser', JSON.stringify(newUser))
-    return { user: newUser, token: 'mock-jwt-token-' + newUser.id }
+    return authService.register(data)
   },
 
   async logout() {
-    await delay(300)
-    localStorage.removeItem('currentUser')
-    return true
+    return authService.logout()
   },
 
+  // --- profile -------------------------------------------------------------
   async getCurrentUser() {
-    await delay(300)
-    const stored = localStorage.getItem('currentUser')
-    if (stored) {
-      return JSON.parse(stored)
-    }
-    return currentUser
+    const stored = tokenStorage.getUser()
+    if (stored) return stored
+    const data = await apiClient.get('/user/me')
+    tokenStorage.setUser(data.user)
+    return data.user
   },
 
+  async getUserProfile() {
+    const data = await apiClient.get('/user/me')
+    tokenStorage.setUser(data.user)
+    return data.user
+  },
+
+  async updateProfile(payload) {
+    const data = await apiClient.put('/user/profile', {
+      name: payload.name,
+      bio: payload.bio,
+    })
+    tokenStorage.setUser(data.user)
+    return data.user
+  },
+
+  async updateAvatar(file) {
+    const form = new FormData()
+    form.append('avatar', file)
+    const data = await apiClient.put('/user/avatar', form, { isForm: true })
+    tokenStorage.setUser(data.user)
+    return data.user
+  },
+
+  async searchUsers({ q, type = 'auto', page = 1, limit = 20 } = {}) {
+    const data = await apiClient.get('/users/search', {
+      query: { q, type, page, limit },
+    })
+    return {
+      users: data?.users ?? [],
+      meta: data?.meta ?? null,
+    }
+  },
+
+  // --- still mocked (chat list / contacts) --------------------------------
   async getUsers() {
     await delay(500)
     return users.filter((u) => u.id !== currentUser.id)
@@ -62,32 +83,5 @@ export const userService = {
       throw new Error('User not found')
     }
     return user
-  },
-
-  async getUserProfile() {
-    await delay(400)
-    const stored = localStorage.getItem('currentUser')
-    if (stored) {
-      return JSON.parse(stored)
-    }
-    return currentUser
-  },
-
-  async updateProfile(data) {
-    await delay(600)
-    const stored = localStorage.getItem('currentUser')
-    const user = stored ? JSON.parse(stored) : currentUser
-    const updated = { ...user, ...data }
-    localStorage.setItem('currentUser', JSON.stringify(updated))
-    return updated
-  },
-
-  async updateStatus(status) {
-    await delay(300)
-    const stored = localStorage.getItem('currentUser')
-    const user = stored ? JSON.parse(stored) : currentUser
-    const updated = { ...user, status }
-    localStorage.setItem('currentUser', JSON.stringify(updated))
-    return updated
   },
 }

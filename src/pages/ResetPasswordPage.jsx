@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { MessageCircle, Eye, EyeOff, Mail, Lock, User, Phone } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { MessageCircle, Lock, Eye, EyeOff, KeyRound } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
@@ -8,12 +8,11 @@ import { Spinner } from '../components/ui/Spinner'
 import { authService } from '../services/authService'
 import { ApiError } from '../services/apiClient'
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
+    token: searchParams.get('token') || '',
     password: '',
     confirmPassword: '',
   })
@@ -27,34 +26,28 @@ export default function RegisterPage() {
     setError('')
     setFieldErrors({})
 
-    if (!/^\+?[0-9\s\-()]{8,20}$/.test(formData.phone.trim())) {
-      setFieldErrors({ phone: 'Please enter a valid phone number' })
-      return
-    }
-
     if (formData.password !== formData.confirmPassword) {
       setFieldErrors({ password_confirmation: 'Passwords do not match' })
       return
     }
-
     if (formData.password.length < 8) {
       setFieldErrors({ password: 'Password must be at least 8 characters' })
       return
     }
 
     setLoading(true)
-
     try {
-      await authService.register(formData)
-      // Backend sends a 6-digit OTP to the user's email. Redirect
-      // to the verification screen with the email pre-filled.
-      navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`)
+      await authService.resetPassword(formData)
+      navigate('/login', {
+        replace: true,
+        state: { message: 'Password reset successful. Please sign in.' },
+      })
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
         setFieldErrors(err.fieldErrors)
       } else {
-        setError(err.message || 'Unable to create account. Please try again.')
+        setError(err.message || 'Unable to reset password.')
       }
     } finally {
       setLoading(false)
@@ -63,10 +56,6 @@ export default function RegisterPage() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
-    const key = e.target.name
-    if (fieldErrors[key] || fieldErrors.password_confirmation) {
-      setFieldErrors({ ...fieldErrors, [key]: undefined, password_confirmation: undefined })
-    }
   }
 
   return (
@@ -79,9 +68,9 @@ export default function RegisterPage() {
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Reset password</h1>
         <p className="text-muted-foreground">
-          Enter your details to get started with ChatApp
+          Choose a new password for your account.
         </p>
       </div>
 
@@ -93,74 +82,34 @@ export default function RegisterPage() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="name">Full Name</Label>
+          <Label htmlFor="token">Reset token</Label>
           <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              id="name"
-              name="name"
+              id="token"
+              name="token"
               type="text"
-              placeholder="John Doe"
-              value={formData.name}
+              placeholder="Paste the token from your email"
+              value={formData.token}
               onChange={handleChange}
               className="pl-10"
               required
             />
           </div>
-          {fieldErrors.name && (
-            <p className="text-xs text-destructive">{fieldErrors.name}</p>
+          {fieldErrors.token && (
+            <p className="text-xs text-destructive">{fieldErrors.token}</p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="john@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              className="pl-10"
-              required
-            />
-          </div>
-          {fieldErrors.email && (
-            <p className="text-xs text-destructive">{fieldErrors.email}</p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone number</Label>
-          <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              placeholder="+84 912 345 678"
-              value={formData.phone}
-              onChange={handleChange}
-              className="pl-10"
-              required
-            />
-          </div>
-          {fieldErrors.phone && (
-            <p className="text-xs text-destructive">{fieldErrors.phone}</p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">New password</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="password"
               name="password"
               type={showPassword ? 'text' : 'password'}
-              placeholder="Create a password"
+              placeholder="Enter a new password"
               value={formData.password}
               onChange={handleChange}
               className="pl-10 pr-10"
@@ -180,14 +129,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Label htmlFor="confirmPassword">Confirm new password</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="confirmPassword"
               name="confirmPassword"
               type={showPassword ? 'text' : 'password'}
-              placeholder="Confirm your password"
+              placeholder="Confirm your new password"
               value={formData.confirmPassword}
               onChange={handleChange}
               className="pl-10"
@@ -195,7 +144,9 @@ export default function RegisterPage() {
             />
           </div>
           {fieldErrors.password_confirmation && (
-            <p className="text-xs text-destructive">{fieldErrors.password_confirmation}</p>
+            <p className="text-xs text-destructive">
+              {fieldErrors.password_confirmation}
+            </p>
           )}
         </div>
 
@@ -203,29 +154,18 @@ export default function RegisterPage() {
           {loading ? (
             <>
               <Spinner size="sm" className="text-primary-foreground" />
-              Creating account...
+              Resetting...
             </>
           ) : (
-            'Create account'
+            'Reset password'
           )}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
+        Back to{' '}
         <Link to="/login" className="text-primary font-medium hover:underline">
           Sign in
-        </Link>
-      </p>
-
-      <p className="text-center text-xs text-muted-foreground">
-        By creating an account, you agree to our{' '}
-        <Link to="#" className="underline hover:text-foreground">
-          Terms of Service
-        </Link>{' '}
-        and{' '}
-        <Link to="#" className="underline hover:text-foreground">
-          Privacy Policy
         </Link>
       </p>
     </div>

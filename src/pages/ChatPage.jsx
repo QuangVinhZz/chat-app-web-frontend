@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   Send,
   Paperclip,
@@ -15,7 +15,6 @@ import {
   Hash,
   Check,
   CheckCheck,
-  X,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '../utils/cn'
@@ -27,20 +26,36 @@ import { Popover, PopoverTrigger, PopoverContent } from '../components/ui/Popove
 import { Spinner } from '../components/ui/Spinner'
 import { chatService } from '../services/chatService'
 import { botService } from '../services/botService'
-import { userService } from '../services/userService'
+import { conversationService } from '../services/conversationService'
+import { useUserStore } from '../stores/userStore'
+import { useConversationsStore } from '../stores/conversationsStore'
+import {
+  getConversationAvatarUrl,
+  getConversationDisplayName,
+  getConversationIsOnline,
+  getMemberRole,
+} from '../utils/conversation'
+import { ApiError } from '../services/apiClient'
+import GroupInfoDialog from '../components/GroupInfoDialog'
 
 const EMOJI_LIST = ['😀', '😂', '😍', '🥳', '😎', '🤔', '👍', '👎', '❤️', '🔥', '✨', '🎉', '💯', '🙏', '👏', '😢']
 
 export default function ChatPage() {
   const { conversationId } = useParams()
+  const navigate = useNavigate()
+  const currentUser = useUserStore((s) => s.user)
+  const upsertConversation = useConversationsStore((s) => s.upsert)
+  const removeConversation = useConversationsStore((s) => s.remove)
+
   const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(Boolean(conversationId))
+  const [loadError, setLoadError] = useState('')
   const [sending, setSending] = useState(false)
-  const [currentUser, setCurrentUser] = useState(null)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showAttachMenu, setShowAttachMenu] = useState(false)
+  const [showGroupInfo, setShowGroupInfo] = useState(false)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -49,29 +64,61 @@ export default function ChatPage() {
   }, [])
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true)
+    if (!conversationId) {
+      setConversation(null)
+      setMessages([])
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    setLoadError('')
+    const load = async () => {
       try {
-        const user = await userService.getCurrentUser()
-        setCurrentUser(user)
+        const conv = await conversationService.get(conversationId)
+        if (cancelled) return
+        setConversation(conv)
+        upsertConversation(conv)
 
-        if (conversationId) {
-          const [conv, msgs] = await Promise.all([
-            chatService.getConversation(conversationId),
-            chatService.getMessages(conversationId),
-          ])
-          setConversation(conv)
-          setMessages(msgs)
-          await chatService.markAsRead(conversationId)
+        // Messages still come from the mocked chat service — real
+        // messaging lives in Module 4. Guard for missing mock entries
+        // so a freshly created conversation doesn't crash the page.
+        try {
+          const msgs = await chatService.getMessages(conversationId)
+          if (!cancelled) setMessages(msgs ?? [])
+          chatService.markAsRead?.(conversationId).catch(() => {})
+        } catch {
+          if (!cancelled) setMessages([])
         }
-      } catch (error) {
-        console.error('Failed to load chat:', error)
+      } catch (err) {
+        if (cancelled) return
+        setLoadError(
+          err instanceof ApiError ? err.message : 'Failed to load conversation.'
+        )
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
-    loadData()
-  }, [conversationId])
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [conversationId, upsertConversation])
+
+  const myRole = getMemberRole(conversation, currentUser?.id)
+  const displayName = getConversationDisplayName(conversation, currentUser?.id)
+  const displayAvatar = getConversationAvatarUrl(conversation, currentUser?.id)
+  const isOnlineDirect = getConversationIsOnline(conversation, currentUser?.id)
+
+  const handleConversationUpdated = (updated) => {
+    if (!updated) return
+    setConversation(updated)
+    upsertConversation(updated)
+  }
+
+  const handleConversationRemoved = (id) => {
+    removeConversation(id)
+    navigate('/chat')
+  }
 
   useEffect(() => {
     scrollToBottom()
@@ -158,7 +205,9 @@ export default function ChatPage() {
             <Bot className="w-10 h-10 text-primary" />
           </div>
           <h2 className="text-xl font-semibold mb-2">Welcome to ChatApp</h2>
-          <p className="text-muted-foreground">Select a conversation to start chatting</p>
+          <p className="text-muted-foreground">
+            Select a conversation or click "New conversation" to get started.
+          </p>
         </div>
       </div>
     )
@@ -172,35 +221,56 @@ export default function ChatPage() {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-destructive/10 flex items-center justify-center">
+            <Info className="w-8 h-8 text-destructive" />
+          </div>
+          <h2 className="text-lg font-semibold mb-1">Unable to load conversation</h2>
+          <p className="text-sm text-muted-foreground mb-4">{loadError}</p>
+          <Button variant="outline" onClick={() => navigate('/chat')}>
+            Back to chat
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Chat Header */}
       <header className="h-16 px-4 border-b flex items-center justify-between bg-card">
-        <div className="flex items-center gap-3">
-          {conversation?.type === 'bot' ? (
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <Bot className="w-6 h-6 text-primary" />
-            </div>
-          ) : conversation?.type === 'group' ? (
-            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+        <div className="flex items-center gap-3 min-w-0">
+          {conversation?.type === 'group' ? (
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
               <Hash className="w-6 h-6 text-primary" />
             </div>
           ) : (
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={conversation?.avatar} alt={conversation?.name} />
-              <AvatarFallback>{getInitials(conversation?.name)}</AvatarFallback>
-            </Avatar>
+            <div className="relative shrink-0">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={displayAvatar} alt={displayName} />
+                <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
+              </Avatar>
+              {isOnlineDirect !== undefined && (
+                <span
+                  className={cn(
+                    'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card',
+                    isOnlineDirect ? 'bg-online' : 'bg-muted-foreground'
+                  )}
+                />
+              )}
+            </div>
           )}
-          <div>
-            <h2 className="font-semibold">
-              {conversation?.type === 'bot' ? 'AI Assistant' : conversation?.name}
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {conversation?.type === 'bot'
-                ? 'Always here to help'
-                : conversation?.type === 'group'
-                ? `${conversation?.participants?.length || 0} members`
-                : 'Online'}
+          <div className="min-w-0">
+            <h2 className="font-semibold truncate">{displayName}</h2>
+            <p className="text-xs text-muted-foreground truncate">
+              {conversation?.type === 'group'
+                ? `${conversation?.members?.length ?? 0} members`
+                : isOnlineDirect
+                  ? 'Online'
+                  : 'Offline'}
             </p>
           </div>
         </div>
@@ -211,9 +281,17 @@ export default function ChatPage() {
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <VideoIcon className="w-5 h-5" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
-            <Info className="w-5 h-5" />
-          </Button>
+          {conversation?.type === 'group' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              onClick={() => setShowGroupInfo(true)}
+              title="Group info"
+            >
+              <Info className="w-5 h-5" />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" className="text-muted-foreground">
             <MoreVertical className="w-5 h-5" />
           </Button>
@@ -224,7 +302,8 @@ export default function ChatPage() {
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
           {messages.map((message, index) => {
-            const isOwn = message.senderId === currentUser?.id || message.senderId === 'user-1'
+            const isOwn =
+              message.senderId === currentUser?.id || message.senderId === 'user-1'
             const showAvatar =
               !isOwn && (index === 0 || messages[index - 1]?.senderId !== message.senderId)
 
@@ -234,15 +313,15 @@ export default function ChatPage() {
                 className={cn('flex gap-3', isOwn ? 'justify-end' : 'justify-start')}
               >
                 {!isOwn && showAvatar && (
-                  <div className="w-8 h-8 flex-shrink-0">
+                  <div className="w-8 h-8 shrink-0">
                     {message.senderId === 'bot' ? (
                       <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                         <Bot className="w-4 h-4 text-primary" />
                       </div>
                     ) : (
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={conversation?.avatar} alt={conversation?.name} />
-                        <AvatarFallback>{getInitials(conversation?.name)}</AvatarFallback>
+                        <AvatarImage src={displayAvatar} alt={displayName} />
+                        <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
                       </Avatar>
                     )}
                   </div>
@@ -377,6 +456,18 @@ export default function ChatPage() {
           </Button>
         </form>
       </div>
+
+      {conversation?.type === 'group' && (
+        <GroupInfoDialog
+          open={showGroupInfo}
+          onOpenChange={setShowGroupInfo}
+          conversation={conversation}
+          meRole={myRole}
+          meId={currentUser?.id}
+          onConversationUpdated={handleConversationUpdated}
+          onConversationRemoved={handleConversationRemoved}
+        />
+      )}
     </div>
   )
 }

@@ -1,29 +1,45 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { MessageCircle, Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Spinner } from '../components/ui/Spinner'
-import { userService } from '../services/userService'
+import { authService } from '../services/authService'
+import { ApiError } from '../services/apiClient'
+import { useUserStore } from '../stores/userStore'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const flashMessage = location.state?.message
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setFieldErrors({})
     setLoading(true)
 
     try {
-      await userService.login(formData.email, formData.password)
+      const data = await authService.login(formData.email, formData.password)
+      useUserStore.getState().setUser(data.user)
       navigate('/chat')
     } catch (err) {
-      setError(err.message)
+      if (err instanceof ApiError) {
+        setError(err.message)
+        setFieldErrors(err.fieldErrors)
+        // If the account is not verified, steer the user to the OTP page.
+        if (err.status === 403 && /verified|verify/i.test(err.message)) {
+          navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`)
+        }
+      } else {
+        setError(err.message || 'Unable to sign in. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -31,6 +47,9 @@ export default function LoginPage() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
+    if (fieldErrors[e.target.name]) {
+      setFieldErrors({ ...fieldErrors, [e.target.name]: undefined })
+    }
   }
 
   return (
@@ -50,6 +69,11 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {flashMessage && !error && (
+          <div className="p-3 rounded-lg bg-primary/10 text-primary text-sm">
+            {flashMessage}
+          </div>
+        )}
         {error && (
           <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
             {error}
@@ -71,12 +95,15 @@ export default function LoginPage() {
               required
             />
           </div>
+          {fieldErrors.email && (
+            <p className="text-xs text-destructive">{fieldErrors.email}</p>
+          )}
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <Link to="#" className="text-sm text-primary hover:underline">
+            <Link to="/forgot-password" className="text-sm text-primary hover:underline">
               Forgot password?
             </Link>
           </div>
@@ -100,6 +127,9 @@ export default function LoginPage() {
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
+          {fieldErrors.password && (
+            <p className="text-xs text-destructive">{fieldErrors.password}</p>
+          )}
         </div>
 
         <Button type="submit" className="w-full" disabled={loading}>
@@ -159,10 +189,6 @@ export default function LoginPage() {
           Sign up
         </Link>
       </p>
-
-      <div className="text-center text-xs text-muted-foreground">
-        <p>Demo credentials: john@example.com / password123</p>
-      </div>
     </div>
   )
 }

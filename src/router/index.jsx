@@ -1,12 +1,30 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import AuthLayout from '../layouts/AuthLayout'
 import MainLayout from '../layouts/MainLayout'
 import LoginPage from '../pages/LoginPage'
 import RegisterPage from '../pages/RegisterPage'
+import VerifyEmailPage from '../pages/VerifyEmailPage'
+import ForgotPasswordPage from '../pages/ForgotPasswordPage'
+import ResetPasswordPage from '../pages/ResetPasswordPage'
 import ChatPage from '../pages/ChatPage'
 import ProfilePage from '../pages/ProfilePage'
-import GroupsPage from '../pages/GroupsPage'
+import FriendsPage from '../pages/FriendsPage'
 import DashboardPage from '../pages/DashboardPage'
+import { authService } from '../services/authService'
+
+function ProtectedRoute() {
+  if (!authService.isAuthenticated()) {
+    return <Navigate to="/login" replace />
+  }
+  return <Outlet />
+}
+
+function PublicOnlyRoute() {
+  if (authService.isAuthenticated()) {
+    return <Navigate to="/chat" replace />
+  }
+  return <Outlet />
+}
 
 const router = createBrowserRouter([
   {
@@ -14,40 +32,32 @@ const router = createBrowserRouter([
     element: <Navigate to="/login" replace />,
   },
   {
-    element: <AuthLayout />,
+    element: <PublicOnlyRoute />,
     children: [
       {
-        path: '/login',
-        element: <LoginPage />,
-      },
-      {
-        path: '/register',
-        element: <RegisterPage />,
+        element: <AuthLayout />,
+        children: [
+          { path: '/login', element: <LoginPage /> },
+          { path: '/register', element: <RegisterPage /> },
+          { path: '/verify-email', element: <VerifyEmailPage /> },
+          { path: '/forgot-password', element: <ForgotPasswordPage /> },
+          { path: '/reset-password', element: <ResetPasswordPage /> },
+        ],
       },
     ],
   },
   {
-    element: <MainLayout />,
+    element: <ProtectedRoute />,
     children: [
       {
-        path: '/chat',
-        element: <ChatPage />,
-      },
-      {
-        path: '/chat/:conversationId',
-        element: <ChatPage />,
-      },
-      {
-        path: '/profile',
-        element: <ProfilePage />,
-      },
-      {
-        path: '/groups',
-        element: <GroupsPage />,
-      },
-      {
-        path: '/dashboard',
-        element: <DashboardPage />,
+        element: <MainLayout />,
+        children: [
+          { path: '/chat', element: <ChatPage /> },
+          { path: '/chat/:conversationId', element: <ChatPage /> },
+          { path: '/profile', element: <ProfilePage /> },
+          { path: '/friends', element: <FriendsPage /> },
+          { path: '/dashboard', element: <DashboardPage /> },
+        ],
       },
     ],
   },
