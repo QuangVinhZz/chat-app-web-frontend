@@ -8,7 +8,6 @@ import {
   Settings,
   Search,
   Hash,
-  ChevronDown,
   Plus,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
@@ -27,7 +26,7 @@ import NewConversationDialog from './NewConversationDialog'
 import { formatDistanceToNow } from 'date-fns'
 
 const navItems = [
-  { icon: MessageCircle, label: 'Chat', path: '/chat' },
+  { icon: MessageCircle, label: 'Chat', path: '/chat', badgeKey: 'chat' },
   { icon: UserPlus, label: 'Friends', path: '/friends', badgeKey: 'friends' },
   { icon: BarChart3, label: 'Dashboard', path: '/dashboard' },
 ]
@@ -45,8 +44,8 @@ export default function Sidebar() {
   const conversations = useConversationsStore((s) => s.conversations)
   const refreshConversations = useConversationsStore((s) => s.refresh)
   const upsertConversation = useConversationsStore((s) => s.upsert)
+  const startConversationsRealtime = useConversationsStore((s) => s.startRealtime)
   const [searchQuery, setSearchQuery] = useState('')
-  const [expandedSection, setExpandedSection] = useState('direct')
   const [loading, setLoading] = useState(true)
   const [showNewConvDialog, setShowNewConvDialog] = useState(false)
 
@@ -56,6 +55,7 @@ export default function Sidebar() {
         await Promise.all([loadUser(), refreshConversations()])
         refreshFriends()
         startRealtime()
+        startConversationsRealtime()
       } catch (error) {
         console.error('Failed to load sidebar data:', error)
       } finally {
@@ -63,11 +63,18 @@ export default function Sidebar() {
       }
     }
     loadData()
-  }, [loadUser, refreshFriends, startRealtime, refreshConversations])
+  }, [
+    loadUser,
+    refreshFriends,
+    startRealtime,
+    refreshConversations,
+    startConversationsRealtime,
+  ])
 
   const handleLogout = async () => {
     await logout()
     useFriendsStore.getState().reset()
+    useConversationsStore.getState().reset()
     navigate('/login')
   }
 
@@ -79,8 +86,10 @@ export default function Sidebar() {
     return name.includes(q)
   })
 
-  const directMessages = filteredConversations.filter((c) => c.type === 'direct')
-  const groupChats = filteredConversations.filter((c) => c.type === 'group')
+  const totalUnread = conversations.reduce(
+    (acc, c) => acc + (c.unreadCount || 0),
+    0
+  )
 
   const getInitials = (name) => {
     return (name || '?')
@@ -115,7 +124,12 @@ export default function Sidebar() {
       <nav className="p-2 border-b border-sidebar-border">
         <div className="flex gap-1">
           {navItems.map((item) => {
-            const badge = item.badgeKey === 'friends' ? receivedCount : 0
+            const badge =
+              item.badgeKey === 'friends'
+                ? receivedCount
+                : item.badgeKey === 'chat'
+                  ? totalUnread
+                  : 0
             return (
               <NavLink
                 key={item.path}
@@ -165,7 +179,7 @@ export default function Sidebar() {
           <Button
             type="button"
             variant="outline"
-            className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent"
+            className="w-full justify-start gap-2 bg-sidebar-accent/30 border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent hover:text-white"
             onClick={() => setShowNewConvDialog(true)}
           >
             <Plus className="w-4 h-4" />
@@ -174,76 +188,39 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* Conversations List */}
+      {/* Conversations List — flat, sorted by last message (Messenger-style) */}
       {isOnChatPage && (
         <div className="flex-1 overflow-y-auto">
-          {loading && conversations.length === 0 && (
+          {loading && filteredConversations.length === 0 && (
             <p className="text-center text-xs text-sidebar-foreground/50 py-6">
               Loading conversations...
             </p>
           )}
 
-          {/* Direct Messages */}
-          <div className="px-2 py-2">
-            <button
-              onClick={() => setExpandedSection(expandedSection === 'direct' ? '' : 'direct')}
-              className="flex items-center justify-between w-full px-2 py-1 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider hover:text-sidebar-foreground"
-            >
-              <span>Direct Messages ({directMessages.length})</span>
-              <ChevronDown
-                className={cn(
-                  'w-4 h-4 transition-transform',
-                  expandedSection === 'direct' && 'rotate-180'
-                )}
-              />
-            </button>
-            {expandedSection === 'direct' && (
-              <div className="mt-1 space-y-0.5">
-                {directMessages.length === 0 ? (
-                  <p className="px-2 py-2 text-xs text-sidebar-foreground/40">
-                    No direct messages yet.
-                  </p>
-                ) : (
-                  directMessages.map((conv) => (
-                    <ConversationItem
-                      key={conv.id}
-                      conversation={conv}
-                      meId={meId}
-                      getInitials={getInitials}
-                    />
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+          {!loading && filteredConversations.length === 0 && (
+            <div className="text-center px-4 py-10">
+              <p className="text-sm text-sidebar-foreground/60 mb-1">
+                {searchQuery
+                  ? 'No conversations match your search.'
+                  : 'No conversations yet.'}
+              </p>
+              {!searchQuery && (
+                <p className="text-xs text-sidebar-foreground/40">
+                  Click "New conversation" to start one.
+                </p>
+              )}
+            </div>
+          )}
 
-          {/* Group Chats */}
-          <div className="px-2 py-2">
-            <button
-              onClick={() => setExpandedSection(expandedSection === 'groups' ? '' : 'groups')}
-              className="flex items-center justify-between w-full px-2 py-1 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider hover:text-sidebar-foreground"
-            >
-              <span>Group Chats ({groupChats.length})</span>
-              <ChevronDown
-                className={cn(
-                  'w-4 h-4 transition-transform',
-                  expandedSection === 'groups' && 'rotate-180'
-                )}
+          <div className="px-2 py-2 space-y-0.5">
+            {filteredConversations.map((conv) => (
+              <ConversationItem
+                key={conv.id}
+                conversation={conv}
+                meId={meId}
+                getInitials={getInitials}
               />
-            </button>
-            {expandedSection === 'groups' && (
-              <div className="mt-1 space-y-0.5">
-                {groupChats.length === 0 ? (
-                  <p className="px-2 py-2 text-xs text-sidebar-foreground/40">
-                    No groups yet.
-                  </p>
-                ) : (
-                  groupChats.map((conv) => (
-                    <GroupConversationItem key={conv.id} conversation={conv} />
-                  ))
-                )}
-              </div>
-            )}
+            ))}
           </div>
         </div>
       )}
@@ -317,9 +294,17 @@ export default function Sidebar() {
 }
 
 function ConversationItem({ conversation, meId, getInitials }) {
+  const isGroup = conversation.type === 'group'
   const name = getConversationDisplayName(conversation, meId)
-  const avatarUrl = getConversationAvatarUrl(conversation, meId)
-  const online = getConversationIsOnline(conversation, meId)
+  const avatarUrl = isGroup ? null : getConversationAvatarUrl(conversation, meId)
+  const online = isGroup ? undefined : getConversationIsOnline(conversation, meId)
+  const memberCount = conversation.members?.length ?? 0
+  const unread = conversation.unreadCount || 0
+  const hasUnread = unread > 0
+  const subtitle =
+    conversation.lastMessagePreview ||
+    (isGroup ? `${memberCount} members` : 'No messages yet')
+
   return (
     <NavLink
       to={`/chat/${conversation.id}`}
@@ -331,63 +316,65 @@ function ConversationItem({ conversation, meId, getInitials }) {
       }
     >
       <div className="relative shrink-0">
-        <Avatar className="h-9 w-9">
-          <AvatarImage src={avatarUrl} alt={name} />
-          <AvatarFallback>{getInitials(name)}</AvatarFallback>
-        </Avatar>
-        <span
-          className={cn(
-            'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-sidebar-bg',
-            online ? 'bg-online' : 'bg-muted-foreground'
-          )}
-        />
+        {isGroup ? (
+          <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center">
+            <Hash className="w-5 h-5 text-primary" />
+          </div>
+        ) : (
+          <>
+            <Avatar className="h-9 w-9">
+              <AvatarImage src={avatarUrl} alt={name} />
+              <AvatarFallback>{getInitials(name)}</AvatarFallback>
+            </Avatar>
+            <span
+              className={cn(
+                'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-sidebar-bg',
+                online ? 'bg-online' : 'bg-muted-foreground'
+              )}
+            />
+          </>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-sidebar-foreground truncate">{name}</p>
-          {conversation.lastMessageAt && (
-            <span className="text-[10px] text-sidebar-foreground/50 shrink-0">
-              {formatDistanceToNow(new Date(conversation.lastMessageAt), { addSuffix: false })}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-sidebar-foreground/60 truncate">
-          {conversation.lastMessagePreview || 'No messages yet'}
-        </p>
-      </div>
-    </NavLink>
-  )
-}
-
-function GroupConversationItem({ conversation }) {
-  const memberCount = conversation.members?.length ?? 0
-  return (
-    <NavLink
-      to={`/chat/${conversation.id}`}
-      className={({ isActive }) =>
-        cn(
-          'flex items-center gap-3 p-2 rounded-lg transition-colors',
-          isActive ? 'bg-sidebar-accent' : 'hover:bg-sidebar-accent/50'
-        )
-      }
-    >
-      <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-        <Hash className="w-5 h-5 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-sidebar-foreground truncate">
-            {conversation.name || 'Group'}
+          <p
+            className={cn(
+              'text-sm truncate',
+              hasUnread
+                ? 'font-semibold text-sidebar-foreground'
+                : 'font-medium text-sidebar-foreground'
+            )}
+          >
+            {name}
           </p>
           {conversation.lastMessageAt && (
-            <span className="text-[10px] text-sidebar-foreground/50 shrink-0">
+            <span
+              className={cn(
+                'text-[10px] shrink-0',
+                hasUnread ? 'text-primary font-semibold' : 'text-sidebar-foreground/50'
+              )}
+            >
               {formatDistanceToNow(new Date(conversation.lastMessageAt), { addSuffix: false })}
             </span>
           )}
         </div>
-        <p className="text-xs text-sidebar-foreground/60 truncate">
-          {conversation.lastMessagePreview || `${memberCount} members`}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p
+            className={cn(
+              'text-xs truncate',
+              hasUnread
+                ? 'text-sidebar-foreground font-medium'
+                : 'text-sidebar-foreground/60'
+            )}
+          >
+            {subtitle}
+          </p>
+          {hasUnread && (
+            <span className="shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
+        </div>
       </div>
     </NavLink>
   )

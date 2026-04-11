@@ -26,7 +26,7 @@ export const conversationService = {
 
   async createDirect(userId) {
     const data = await apiClient.post('/conversations/direct', {
-      user_id: Number(userId),
+      user_id: userId,
     })
     return data?.conversation
   },
@@ -34,14 +34,14 @@ export const conversationService = {
   async createGroup({ name, memberIds }) {
     const data = await apiClient.post('/conversations/group', {
       name,
-      member_ids: memberIds.map(Number),
+      member_ids: memberIds,
     })
     return data?.conversation
   },
 
   async addMembers(conversationId, userIds) {
     const data = await apiClient.post(`/conversations/${conversationId}/members`, {
-      user_ids: userIds.map(Number),
+      user_ids: userIds,
     })
     return data?.added ?? []
   },
@@ -64,12 +64,22 @@ export const conversationService = {
 
   async transferOwnership(conversationId, userId) {
     const data = await apiClient.post(`/conversations/${conversationId}/transfer`, {
-      user_id: Number(userId),
+      user_id: userId,
     })
     return data?.conversation
   },
 
   async disband(conversationId) {
     return apiClient.delete(`/conversations/${conversationId}`)
+  },
+
+  /**
+   * Mark the conversation as read up to the given message (or now).
+   * Fire-and-forget — callers typically don't need the response.
+   */
+  async markRead(conversationId, lastMessageId) {
+    return apiClient.post(`/conversations/${conversationId}/read`, {
+      last_message_id: lastMessageId,
+    })
   },
 }

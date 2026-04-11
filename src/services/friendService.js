@@ -26,7 +26,7 @@ export const friendService = {
 
   async sendRequest(addresseeId) {
     const data = await apiClient.post('/friends/requests', {
-      addressee_id: Number(addresseeId),
+      addressee_id: addresseeId,
     })
     return data?.friendship
   },
@@ -55,7 +55,7 @@ export const friendService = {
   },
 
   async block(userId) {
-    const data = await apiClient.post('/blocks', { user_id: Number(userId) })
+    const data = await apiClient.post('/blocks', { user_id: userId })
     return data?.block
   },
 

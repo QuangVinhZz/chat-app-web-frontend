@@ -84,4 +84,14 @@ export const userService = {
     }
     return user
   },
+
+  /**
+   * Fetch the public profile of any user by UUID.
+   * Used e.g. by the draft-chat page to display name/avatar before a
+   * conversation actually exists on the server.
+   */
+  async getPublicProfile(userUuid) {
+    const data = await apiClient.get(`/users/${userUuid}`)
+    return data?.user ?? null
+  },
 }

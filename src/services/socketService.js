@@ -111,6 +111,17 @@ class SocketService {
     this.socket?.emit(event, payload)
   }
 
+  /**
+   * Emit a typing indicator to the given conversation. Server will
+   * relay to all other members of the room.
+   */
+  emitTyping(conversationId, typing) {
+    if (!this.socket?.connected) return
+    this.socket.emit(typing ? 'typing:start' : 'typing:stop', {
+      conversationId,
+    })
+  }
+
   isConnected() {
     return Boolean(this.socket?.connected)
   }

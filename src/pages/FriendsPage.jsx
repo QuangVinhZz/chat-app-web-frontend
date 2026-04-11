@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Users,
   UserPlus,
@@ -12,6 +13,7 @@ import {
   Inbox,
   Ban,
   ShieldOff,
+  MessageCircle,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '../utils/cn'
@@ -51,6 +53,7 @@ const getInitials = (name) =>
     .slice(0, 2)
 
 export default function FriendsPage() {
+  const navigate = useNavigate()
   const me = useUserStore((s) => s.user)
   const setCounts = useFriendsStore((s) => s.setCounts)
 
@@ -298,6 +301,13 @@ export default function FriendsPage() {
       setBlocked((prev) => prev.filter((b) => b.id !== userId))
     })
 
+  // Open a draft chat with this friend. We deliberately do NOT create a
+  // conversation on the server yet — that happens when the user actually
+  // sends the first message (see ChatPage draft mode).
+  const handleOpenChat = (userId) => {
+    navigate(`/chat/new/${userId}`)
+  }
+
   // Dialog-scoped wrappers: reuse the same backend calls, but also keep the
   // open detail dialog in sync with the latest friendship / block state.
   const handleSendRequestFromDialog = async (userId) => {
@@ -428,6 +438,7 @@ export default function FriendsPage() {
                 pending={pending}
                 onUnfriend={handleUnfriend}
                 onBlock={handleBlock}
+                onOpenChat={handleOpenChat}
               />
             )}
 
@@ -544,7 +555,7 @@ function UserRow({ avatarUrl, name, meta, isOnline, onClick, children }) {
   )
 }
 
-function FriendsList({ friends, pending, onUnfriend, onBlock }) {
+function FriendsList({ friends, pending, onUnfriend, onBlock, onOpenChat }) {
   if (friends.length === 0) {
     return (
       <EmptyState
@@ -570,6 +581,21 @@ function FriendsList({ friends, pending, onUnfriend, onBlock }) {
                 : 'Offline'
           }
         >
+          <Button
+            size="sm"
+            disabled={pending[`chat:${f.id}`]}
+            onClick={() => onOpenChat(f.id)}
+            title="Chat"
+          >
+            {pending[`chat:${f.id}`] ? (
+              <Spinner size="sm" className="text-primary-foreground" />
+            ) : (
+              <>
+                <MessageCircle className="w-4 h-4 mr-1" />
+                Chat
+              </>
+            )}
+          </Button>
           <Button
             variant="ghost"
             size="icon"

@@ -53,6 +53,9 @@ const router = createBrowserRouter([
         element: <MainLayout />,
         children: [
           { path: '/chat', element: <ChatPage /> },
+          // Draft chat with a user — no conversation exists server-side
+          // yet; one is created when the first message is sent.
+          { path: '/chat/new/:userId', element: <ChatPage /> },
           { path: '/chat/:conversationId', element: <ChatPage /> },
           { path: '/profile', element: <ProfilePage /> },
           { path: '/friends', element: <FriendsPage /> },
