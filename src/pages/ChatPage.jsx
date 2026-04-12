@@ -11,14 +11,8 @@ import {
   Bot,
   Hash,
   Reply,
-  RotateCcw,
-  Trash2,
   X,
-  FileText,
-  Download,
   ChevronDown,
-  Forward,
-  Play,
   Ban,
   ShieldOff,
   UserPlus,
@@ -26,8 +20,8 @@ import {
   UserX,
   Clock,
 } from 'lucide-react'
-import { format } from 'date-fns'
 import { cn } from '../utils/cn'
+import { getInitials } from '../utils/format'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Avatar, AvatarImage, AvatarFallback } from '../components/ui/Avatar'
@@ -49,17 +43,13 @@ import {
 import { ApiError } from '../services/apiClient'
 import GroupInfoDialog from '../components/GroupInfoDialog'
 import ForwardMessageDialog from '../components/ForwardMessageDialog'
+import MessageRow from '../components/chat/MessageRow'
+import MediaLightbox from '../components/chat/MediaLightbox'
+import BlockNotice from '../components/chat/BlockNotice'
+import TypingDots from '../components/chat/TypingDots'
+import AttachmentChip from '../components/chat/AttachmentChip'
 
 const EMOJI_LIST = ['😀', '😂', '😍', '🥳', '😎', '🤔', '👍', '👎', '❤️', '🔥', '✨', '🎉', '💯', '🙏', '👏', '😢']
-const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏']
-
-const getInitials = (name) =>
-  (name || '?')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
 
 export default function ChatPage() {
   // Two route patterns share this component:
@@ -912,12 +902,21 @@ export default function ChatPage() {
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Chat Header */}
-      <header className="h-16 px-4 border-b flex items-center justify-between bg-card">
+      <header className="h-16 px-4 pl-16 md:pl-4 border-b flex items-center justify-between bg-card">
         <div className="flex items-center gap-3 min-w-0">
           {conversation?.type === 'group' ? (
-            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-              <Hash className="w-6 h-6 text-primary" />
-            </div>
+            displayAvatar ? (
+              <Avatar className="h-10 w-10 rounded-lg shrink-0">
+                <AvatarImage src={displayAvatar} alt={displayName} />
+                <AvatarFallback className="rounded-lg bg-primary/20 text-primary">
+                  {getInitials(displayName)}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                <Hash className="w-6 h-6 text-primary" />
+              </div>
+            )
           ) : (
             <div className="relative shrink-0">
               <Avatar className="h-10 w-10">
@@ -1063,11 +1062,7 @@ export default function ChatPage() {
                 )}
               </PopoverContent>
             </Popover>
-          ) : (
-            <Button variant="ghost" size="icon" className="text-muted-foreground">
-              <MoreVertical className="w-5 h-5" />
-            </Button>
-          )}
+          ) : null}
         </div>
       </header>
 
@@ -1149,28 +1144,33 @@ export default function ChatPage() {
         />
       ) : (
       <div className="border-t bg-card">
-        {/* Reply preview */}
+        {/* Reply preview above composer */}
         {replyingTo && (
-          <div className="px-4 pt-3 pb-1 flex items-start gap-3 border-b">
-            <div className="w-1 self-stretch bg-primary rounded-full" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-primary font-medium">
-                Replying to {replyingTo.sender?.name || 'Unknown'}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {replyingTo.isRecalled
-                  ? '[Message recalled]'
-                  : replyingTo.content || '[attachment]'}
-              </p>
+          <div className="px-3 pt-2 pb-2 border-b">
+            <div className="flex items-start gap-3 rounded-lg bg-muted/60 px-3 py-2 border-l-4 border-primary">
+              <Reply className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-primary">
+                  Replying to {replyingTo.sender?.name || 'Unknown'}
+                </p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {replyingTo.isRecalled
+                    ? '[Message recalled]'
+                    : replyingTo.content ||
+                      ((replyingTo.attachments?.length ?? 0) > 0
+                        ? '📎 Attachment'
+                        : '')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReplyingTo(null)}
+                className="w-6 h-6 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground shrink-0"
+                aria-label="Cancel reply"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setReplyingTo(null)}
-              className="text-muted-foreground hover:text-foreground"
-              aria-label="Cancel reply"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </div>
         )}
 
@@ -1289,606 +1289,3 @@ export default function ChatPage() {
   )
 }
 
-/* ------------------------- sub-components ------------------------- */
-
-function MessageRow({
-  message,
-  previous,
-  currentUserId,
-  replyTarget,
-  readers,
-  onReply,
-  onRecall,
-  onDeleteForMe,
-  onReact,
-  onForward,
-  onOpenLightbox,
-}) {
-  const isOwn = message.senderId === currentUserId
-  const showAvatar =
-    !isOwn && (!previous || previous.senderId !== message.senderId)
-  const showName =
-    !isOwn && (!previous || previous.senderId !== message.senderId)
-
-  const groupedReactions = groupReactions(message.reactions ?? [])
-
-  return (
-    <div className={cn('group flex gap-2', isOwn ? 'justify-end' : 'justify-start')}>
-      {!isOwn && (
-        <div className="w-8 shrink-0">
-          {showAvatar && (
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={message.sender?.avatarUrl} alt={message.sender?.name} />
-              <AvatarFallback>{getInitials(message.sender?.name)}</AvatarFallback>
-            </Avatar>
-          )}
-        </div>
-      )}
-
-      <div className={cn('max-w-[70%] flex flex-col', isOwn ? 'items-end' : 'items-start')}>
-        {showName && (
-          <p className="text-[10px] text-muted-foreground mb-0.5 ml-2">
-            {message.sender?.name || 'Unknown'}
-          </p>
-        )}
-
-        {/* Reply preview inside the bubble */}
-        {message.replyToMessageId && (
-          <div
-            className={cn(
-              'mb-1 px-3 py-1.5 rounded-lg border-l-2 max-w-full',
-              isOwn
-                ? 'bg-primary/20 border-primary-foreground/40'
-                : 'bg-muted border-primary'
-            )}
-          >
-            <p className="text-[10px] font-medium opacity-70">
-              {replyTarget?.sender?.name || 'Unknown'}
-            </p>
-            <p className="text-xs truncate opacity-80">
-              {replyTarget?.isRecalled
-                ? '[Message recalled]'
-                : replyTarget?.content || '[attachment]'}
-            </p>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1">
-          {isOwn && (
-            <MessageHoverActions
-              message={message}
-              isOwn={isOwn}
-              onReply={onReply}
-              onRecall={onRecall}
-              onDeleteForMe={onDeleteForMe}
-              onReact={onReact}
-              onForward={onForward}
-            />
-          )}
-
-          <div
-            className={cn(
-              'rounded-2xl px-3.5 py-2 relative',
-              message.isRecalled
-                ? 'bg-muted/50 italic text-muted-foreground'
-                : isOwn
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
-            )}
-          >
-            {message.isRecalled ? (
-              <p className="text-sm">[Message recalled]</p>
-            ) : (
-              <MessageBody
-                message={message}
-                isOwn={isOwn}
-                onOpenLightbox={onOpenLightbox}
-              />
-            )}
-            <div
-              className={cn(
-                'text-[10px] mt-1',
-                isOwn ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground'
-              )}
-            >
-              {message.createdAt && format(new Date(message.createdAt), 'HH:mm')}
-            </div>
-          </div>
-
-          {!isOwn && (
-            <MessageHoverActions
-              message={message}
-              isOwn={isOwn}
-              onReply={onReply}
-              onRecall={onRecall}
-              onDeleteForMe={onDeleteForMe}
-              onReact={onReact}
-              onForward={onForward}
-            />
-          )}
-        </div>
-
-        {/* Reaction chips — hidden on recalled messages since the
-            content is gone and reacting to "[Message recalled]" is
-            meaningless. */}
-        {!message.isRecalled && groupedReactions.length > 0 && (
-          <div className={cn('flex gap-1 mt-1', isOwn ? 'mr-1' : 'ml-1')}>
-            {groupedReactions.map(({ emoji, count, mine }) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => onReact(message, emoji)}
-                className={cn(
-                  'flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border',
-                  mine ? 'bg-primary/10 border-primary/40' : 'bg-card border-border'
-                )}
-                title={mine ? 'Remove reaction' : 'Add reaction'}
-              >
-                <span>{emoji}</span>
-                <span className="text-[10px] text-muted-foreground">{count}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Read receipts — stacked mini avatars of everyone whose last
-            read-at reaches at least this own message. Only rendered on
-            own messages, only on the latest one each reader has seen. */}
-        {isOwn && readers && readers.length > 0 && (
-          <div className="flex -space-x-1.5 mt-1 mr-1">
-            {readers.slice(0, 4).map((u) => (
-              <Avatar
-                key={u.id}
-                className="h-4 w-4 border border-card"
-                title={`${u.name || 'Unknown'} has seen this`}
-              >
-                <AvatarImage src={u.avatarUrl} alt={u.name} />
-                <AvatarFallback className="text-[8px]">
-                  {getInitials(u.name)}
-                </AvatarFallback>
-              </Avatar>
-            ))}
-            {readers.length > 4 && (
-              <span className="text-[10px] text-muted-foreground ml-1">
-                +{readers.length - 4}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function MessageHoverActions({
-  message,
-  isOwn,
-  onReply,
-  onRecall,
-  onDeleteForMe,
-  onReact,
-  onForward,
-}) {
-  if (message.isRecalled) return null
-  return (
-    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="h-7 w-7 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground"
-            title="React"
-          >
-            <Smile className="w-4 h-4" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-1" align={isOwn ? 'end' : 'start'}>
-          <div className="flex gap-1">
-            {QUICK_REACTIONS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => onReact(message, emoji)}
-                className="w-8 h-8 rounded-full hover:bg-muted text-lg flex items-center justify-center"
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      <button
-        type="button"
-        onClick={() => onReply(message)}
-        className="h-7 w-7 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground"
-        title="Reply"
-      >
-        <Reply className="w-4 h-4" />
-      </button>
-
-      <Popover>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="h-7 w-7 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground"
-            title="More"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-44 p-1" align={isOwn ? 'end' : 'start'}>
-          <div className="space-y-0.5">
-            <button
-              type="button"
-              onClick={() => onForward?.(message)}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted"
-            >
-              <Forward className="w-4 h-4" />
-              Forward
-            </button>
-            {isOwn && (
-              <button
-                type="button"
-                onClick={() => onRecall(message)}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Recall
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => onDeleteForMe(message)}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted text-destructive"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete for me
-            </button>
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
-
-function MessageBody({ message, isOwn, onOpenLightbox }) {
-  const attachments = message.attachments ?? []
-  return (
-    <div className="space-y-2">
-      {attachments.length > 0 && (
-        <div className="space-y-2">
-          {attachments.map((att) => (
-            <AttachmentPreview
-              key={att.id}
-              attachment={att}
-              isOwn={isOwn}
-              onOpenLightbox={onOpenLightbox}
-            />
-          ))}
-        </div>
-      )}
-      {message.content && (
-        <p className="text-sm whitespace-pre-wrap wrap-break-word">{message.content}</p>
-      )}
-    </div>
-  )
-}
-
-function AttachmentPreview({ attachment, isOwn, onOpenLightbox }) {
-  if (attachment.type === 'image') {
-    return (
-      <button
-        type="button"
-        onClick={() => onOpenLightbox?.(attachment)}
-        className="block rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary"
-      >
-        <img
-          src={attachment.url}
-          alt={attachment.fileName || 'image'}
-          className="max-w-full max-h-80 object-cover"
-        />
-      </button>
-    )
-  }
-  if (attachment.type === 'video') {
-    return (
-      <button
-        type="button"
-        onClick={() => onOpenLightbox?.(attachment)}
-        className="relative block rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary group"
-      >
-        <video
-          src={attachment.url}
-          className="max-w-full max-h-80 pointer-events-none"
-          muted
-          playsInline
-          preload="metadata"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
-          <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center">
-            <Play className="w-6 h-6 text-white fill-white ml-0.5" />
-          </div>
-        </div>
-      </button>
-    )
-  }
-  if (attachment.type === 'audio') {
-    return <audio src={attachment.url} controls className="max-w-full" />
-  }
-  // Document fallback — styling depends on whether the bubble is
-  // primary-coloured (own) or muted (incoming). On own bubbles the
-  // base `bg-primary` already carries the colour, so the icon + its
-  // container have to use `primary-foreground` shades instead of
-  // another `bg-primary`, otherwise everything blends together.
-  return (
-    <a
-      href={attachment.url}
-      target="_blank"
-      rel="noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      className={cn(
-        'flex items-center gap-3 p-2 pr-3 rounded-lg transition-colors min-w-[240px]',
-        isOwn
-          ? 'bg-primary-foreground/15 hover:bg-primary-foreground/20'
-          : 'bg-background hover:bg-background/70 border border-border'
-      )}
-    >
-      <div
-        className={cn(
-          'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
-          isOwn ? 'bg-primary-foreground/25' : 'bg-primary/15'
-        )}
-      >
-        <FileText
-          className={cn('w-5 h-5', isOwn ? 'text-primary-foreground' : 'text-primary')}
-        />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p
-          className={cn(
-            'text-sm font-medium truncate',
-            isOwn ? 'text-primary-foreground' : 'text-foreground'
-          )}
-        >
-          {attachment.fileName || 'Attachment'}
-        </p>
-        {attachment.fileSize != null && (
-          <p
-            className={cn(
-              'text-xs',
-              isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
-            )}
-          >
-            {formatFileSize(attachment.fileSize)}
-          </p>
-        )}
-      </div>
-      <Download
-        className={cn(
-          'w-4 h-4 shrink-0',
-          isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
-        )}
-      />
-    </a>
-  )
-}
-
-function AttachmentChip({ attachment, onRemove }) {
-  return (
-    <div className="flex items-center gap-2 bg-muted rounded-lg px-2 py-1 text-xs">
-      {attachment.type === 'image' ? (
-        <img
-          src={attachment.url}
-          alt={attachment.fileName || 'image'}
-          className="w-8 h-8 rounded object-cover"
-        />
-      ) : (
-        <FileText className="w-4 h-4 text-primary" />
-      )}
-      <span className="truncate max-w-30">{attachment.fileName || attachment.type}</span>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="text-muted-foreground hover:text-foreground"
-        aria-label="Remove attachment"
-      >
-        <X className="w-3 h-3" />
-      </button>
-    </div>
-  )
-}
-
-function groupReactions(reactions) {
-  const byEmoji = new Map()
-  for (const r of reactions) {
-    const current = byEmoji.get(r.emoji) ?? { emoji: r.emoji, count: 0, mine: false }
-    current.count += 1
-    byEmoji.set(r.emoji, current)
-  }
-  return Array.from(byEmoji.values())
-}
-
-function formatFileSize(bytes) {
-  if (bytes == null) return ''
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
-}
-
-function TypingDots() {
-  return (
-    <span className="inline-flex gap-0.5" aria-hidden="true">
-      <span className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.3s]" />
-      <span className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.15s]" />
-      <span className="w-1 h-1 rounded-full bg-muted-foreground animate-bounce" />
-    </span>
-  )
-}
-
-/**
- * Banner that replaces the composer when a direct conversation is
- * blocked in either direction. If *I* am the blocker, offer an
- * "Unblock" action; if I'm the blocked party, just show a notice.
- */
-function BlockNotice({ blockedByMe, displayName, otherUserId, onUnblocked }) {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  const handleUnblock = async () => {
-    if (!otherUserId || busy) return
-    setError('')
-    setBusy(true)
-    try {
-      await friendService.unblock(otherUserId)
-      await onUnblocked?.()
-    } catch (err) {
-      setError(err?.message || 'Failed to unblock.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="border-t bg-card">
-      <div className="p-4 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
-          <Ban className="w-5 h-5 text-destructive" />
-        </div>
-        <div className="flex-1 min-w-0">
-          {blockedByMe ? (
-            <>
-              <p className="text-sm font-medium">
-                You have blocked {displayName || 'this user'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Unblock to send or receive messages again.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-medium">You can't message this user</p>
-              <p className="text-xs text-muted-foreground">
-                Messages you send won't be delivered.
-              </p>
-            </>
-          )}
-          {error && <p className="text-xs text-destructive mt-1">{error}</p>}
-        </div>
-        {blockedByMe && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleUnblock}
-            disabled={busy || !otherUserId}
-          >
-            {busy ? (
-              <Spinner size="sm" />
-            ) : (
-              <>
-                <ShieldOff className="w-4 h-4 mr-2" />
-                Unblock
-              </>
-            )}
-          </Button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/**
- * Fullscreen lightbox for image / video attachments. Renders a dark
- * overlay that dismisses on Escape, click-outside, or the X button.
- * The body scroll is locked while open.
- */
-function MediaLightbox({ attachment, onClose }) {
-  useEffect(() => {
-    if (!attachment) return
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
-    }
-    document.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-    }
-  }, [attachment, onClose])
-
-  if (!attachment) return null
-
-  const isImage = attachment.type === 'image'
-  const isVideo = attachment.type === 'video'
-  if (!isImage && !isVideo) return null
-
-  return (
-    <div
-      className="fixed inset-0 z-60 bg-black/90 flex items-center justify-center p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={attachment.fileName || 'Media preview'}
-    >
-      {/* Top bar: filename + download + close */}
-      {attachment.fileName && (
-        <div
-          className="absolute top-4 left-4 right-32 text-white/90 text-sm truncate pointer-events-none"
-          aria-hidden="true"
-        >
-          {attachment.fileName}
-        </div>
-      )}
-      <a
-        href={attachment.url}
-        download={attachment.fileName || true}
-        target="_blank"
-        rel="noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        className="absolute top-4 right-16 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
-        aria-label="Download"
-        title="Download"
-      >
-        <Download className="w-5 h-5" />
-      </a>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          onClose?.()
-        }}
-        className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white"
-        aria-label="Close"
-        title="Close"
-      >
-        <X className="w-5 h-5" />
-      </button>
-
-      {/* Media container — stopPropagation so clicking the image itself
-          doesn't dismiss the overlay. */}
-      <div
-        className="max-w-full max-h-full flex items-center justify-center"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {isImage && (
-          <img
-            src={attachment.url}
-            alt={attachment.fileName || 'image'}
-            className="max-w-[95vw] max-h-[90vh] object-contain select-none"
-            draggable={false}
-          />
-        )}
-        {isVideo && (
-          <video
-            src={attachment.url}
-            controls
-            autoPlay
-            className="max-w-[95vw] max-h-[90vh]"
-          />
-        )}
-      </div>
-    </div>
-  )
-}

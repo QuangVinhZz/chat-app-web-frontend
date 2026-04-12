@@ -98,7 +98,7 @@ export default function DashboardPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <header className="h-16 px-6 border-b flex items-center bg-card">
+      <header className="h-16 px-6 pl-16 md:pl-6 border-b flex items-center bg-card">
         <div>
           <h1 className="text-xl font-semibold">Analytics Dashboard</h1>
           <p className="text-sm text-muted-foreground">Monitor your chat application performance</p>

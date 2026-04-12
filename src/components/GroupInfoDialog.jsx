@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Crown,
   Shield,
@@ -9,6 +9,7 @@ import {
   ArrowRightLeft,
   Hash,
   Search,
+  Camera,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { Button } from './ui/Button'
@@ -71,6 +72,10 @@ export default function GroupInfoDialog({
   const [loadingFriends, setLoadingFriends] = useState(false)
   const [search, setSearch] = useState('')
   const [picked, setPicked] = useState(new Set())
+
+  // Avatar upload
+  const avatarInputRef = useRef(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
   // Reset transient state whenever the dialog opens/closes.
   useEffect(() => {
@@ -181,6 +186,40 @@ export default function GroupInfoDialog({
       onConversationRemoved?.(conversation.id)
     })
 
+  const handleAvatarClick = () => {
+    if (!canManage) return
+    avatarInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file later
+    if (!file) return
+
+    setError('')
+    if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+      setError('Avatar must be a JPG or PNG image.')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Avatar must be smaller than 2MB.')
+      return
+    }
+
+    setUploadingAvatar(true)
+    try {
+      const updated = await conversationService.updateGroupAvatar(
+        conversation.id,
+        file
+      )
+      if (updated) onConversationUpdated?.(updated)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to upload avatar.')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
   // --- filtered friend list for Add view --------------------------------
   const filteredFriends = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -205,11 +244,49 @@ export default function GroupInfoDialog({
       <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
-              <Hash className="w-6 h-6 text-primary" />
+            <div className="relative shrink-0">
+              {conversation.avatarUrl ? (
+                <Avatar className="w-14 h-14 rounded-lg">
+                  <AvatarImage src={conversation.avatarUrl} alt={conversation.name} />
+                  <AvatarFallback className="rounded-lg bg-primary/20 text-primary font-semibold">
+                    {getInitials(conversation.name)}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <div className="w-14 h-14 rounded-lg bg-primary/20 flex items-center justify-center">
+                  <Hash className="w-7 h-7 text-primary" />
+                </div>
+              )}
+              {canManage && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleAvatarClick}
+                    disabled={uploadingAvatar}
+                    className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 disabled:opacity-70"
+                    aria-label="Change group avatar"
+                    title="Change avatar"
+                  >
+                    {uploadingAvatar ? (
+                      <Spinner size="sm" className="text-primary-foreground" />
+                    ) : (
+                      <Camera className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </>
+              )}
             </div>
             <div className="min-w-0">
-              <DialogTitle className="truncate">{conversation.name || 'Group'}</DialogTitle>
+              <DialogTitle className="truncate">
+                {conversation.name || 'Group'}
+              </DialogTitle>
               <DialogDescription>
                 {members.length} member{members.length === 1 ? '' : 's'}
               </DialogDescription>

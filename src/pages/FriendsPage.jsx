@@ -34,6 +34,7 @@ import { userService } from '../services/userService'
 import { socketService } from '../services/socketService'
 import { useUserStore } from '../stores/userStore'
 import { useFriendsStore } from '../stores/friendsStore'
+import { useConversationsStore } from '../stores/conversationsStore'
 import { ApiError } from '../services/apiClient'
 
 const TABS = [
@@ -301,10 +302,21 @@ export default function FriendsPage() {
       setBlocked((prev) => prev.filter((b) => b.id !== userId))
     })
 
-  // Open a draft chat with this friend. We deliberately do NOT create a
-  // conversation on the server yet — that happens when the user actually
-  // sends the first message (see ChatPage draft mode).
+  // Open a chat with this friend. If a direct conversation already
+  // exists in our sidebar list, jump straight to it — otherwise fall
+  // through to the draft page which lazily creates one on first send.
   const handleOpenChat = (userId) => {
+    const existing = useConversationsStore
+      .getState()
+      .conversations.find(
+        (c) =>
+          c.type === 'direct' &&
+          c.members?.some((m) => m.user?.id === userId)
+      )
+    if (existing) {
+      navigate(`/chat/${existing.id}`)
+      return
+    }
     navigate(`/chat/new/${userId}`)
   }
 
@@ -370,7 +382,7 @@ export default function FriendsPage() {
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <header className="h-16 px-6 border-b flex items-center justify-between bg-card">
+      <header className="h-16 px-6 pl-16 md:pl-6 border-b flex items-center justify-between bg-card">
         <div>
           <h1 className="text-xl font-semibold">Friends</h1>
           <p className="text-sm text-muted-foreground">

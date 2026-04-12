@@ -82,4 +82,19 @@ export const conversationService = {
       last_message_id: lastMessageId,
     })
   },
+
+  /**
+   * Upload a new avatar image for a group conversation. Owner or admin
+   * only; returns the updated conversation.
+   */
+  async updateGroupAvatar(conversationId, file) {
+    const form = new FormData()
+    form.append('avatar', file)
+    const data = await apiClient.put(
+      `/conversations/${conversationId}/avatar`,
+      form,
+      { isForm: true }
+    )
+    return data?.conversation
+  },
 }

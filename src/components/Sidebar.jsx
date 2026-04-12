@@ -109,7 +109,7 @@ export default function Sidebar() {
   const isOnChatPage = location.pathname.startsWith('/chat')
 
   return (
-    <aside className="w-72 bg-sidebar-bg border-r border-sidebar-border flex flex-col h-full">
+    <aside className="w-full h-full bg-sidebar-bg border-r border-sidebar-border flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
@@ -296,7 +296,7 @@ export default function Sidebar() {
 function ConversationItem({ conversation, meId, getInitials }) {
   const isGroup = conversation.type === 'group'
   const name = getConversationDisplayName(conversation, meId)
-  const avatarUrl = isGroup ? null : getConversationAvatarUrl(conversation, meId)
+  const avatarUrl = getConversationAvatarUrl(conversation, meId)
   const online = isGroup ? undefined : getConversationIsOnline(conversation, meId)
   const memberCount = conversation.members?.length ?? 0
   const unread = conversation.unreadCount || 0
@@ -317,9 +317,18 @@ function ConversationItem({ conversation, meId, getInitials }) {
     >
       <div className="relative shrink-0">
         {isGroup ? (
-          <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center">
-            <Hash className="w-5 h-5 text-primary" />
-          </div>
+          avatarUrl ? (
+            <Avatar className="h-9 w-9 rounded-lg">
+              <AvatarImage src={avatarUrl} alt={name} />
+              <AvatarFallback className="rounded-lg bg-primary/20 text-primary">
+                {getInitials(name)}
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center">
+              <Hash className="w-5 h-5 text-primary" />
+            </div>
+          )
         ) : (
           <>
             <Avatar className="h-9 w-9">
