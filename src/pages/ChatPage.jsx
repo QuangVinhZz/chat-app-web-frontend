@@ -19,6 +19,9 @@ import {
   UserCheck,
   UserX,
   Clock,
+  Image as ImageIcon,
+  Film,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { getInitials } from '../utils/format'
@@ -104,6 +107,8 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const inputRef = useRef(null)
+  const imageInputRef = useRef(null)
+  const videoInputRef = useRef(null)
   const fileInputRef = useRef(null)
 
   const scrollToBottom = useCallback((behavior = 'smooth') => {
@@ -1222,6 +1227,23 @@ export default function ChatPage() {
         )}
 
         <form onSubmit={handleSendMessage} className="p-3 flex items-center gap-2">
+          {/* Hidden Pickers */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            onChange={handleFilePicked}
+          />
+          <input
+            ref={videoInputRef}
+            type="file"
+            multiple
+            accept="video/*"
+            className="hidden"
+            onChange={handleFilePicked}
+          />
           <input
             ref={fileInputRef}
             type="file"
@@ -1229,19 +1251,46 @@ export default function ChatPage() {
             className="hidden"
             onChange={handleFilePicked}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground shrink-0"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            title="Attach file"
-          >
-            {uploading ? <Spinner size="sm" /> : <Paperclip className="w-5 h-5" />}
-          </Button>
 
-          <div className="relative flex-1">
+          <div className="flex bg-muted/30 rounded-full px-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground w-8 h-8 rounded-full"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={uploading}
+              title="Attach Images"
+            >
+              <ImageIcon className="w-4 h-4 text-blue-500" />
+            </Button>
+            
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground w-8 h-8 rounded-full"
+              onClick={() => videoInputRef.current?.click()}
+              disabled={uploading}
+              title="Attach Videos"
+            >
+              <Film className="w-4 h-4 text-red-500" />
+            </Button>
+            
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground w-8 h-8 rounded-full"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              title="Attach Files"
+            >
+              {uploading ? <Spinner size="sm" /> : <Paperclip className="w-4 h-4" />}
+            </Button>
+          </div>
+
+          <div className="relative flex-1 group">
             <Input
               ref={inputRef}
               value={newMessage}
