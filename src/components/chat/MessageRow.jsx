@@ -1,8 +1,10 @@
-import { Reply, Forward } from 'lucide-react'
+import { Reply, Forward, PhoneCall } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '../../utils/cn'
 import { getInitials, groupReactions } from '../../utils/format'
 import { Avatar, AvatarImage, AvatarFallback } from '../ui/Avatar'
+import { Button } from '../ui/Button'
+import { useCall } from '../../contexts/CallContext'
 import MessageBody from './MessageBody'
 import MessageHoverActions from './MessageHoverActions'
 
@@ -31,6 +33,10 @@ export default function MessageRow({
     !isOwn && (!previous || previous.senderId !== message.senderId)
 
   const groupedReactions = groupReactions(message.reactions ?? [])
+  
+  // Custom Call Context
+  const { joinGroupCall } = useCall();
+  const isGroupCallNotice = message.content === '[GROUP_CALL:STARTED]';
 
   return (
     <div className={cn('group flex gap-2', isOwn ? 'justify-end' : 'justify-start')}>
@@ -136,6 +142,22 @@ export default function MessageRow({
 
             {message.isRecalled ? (
               <p className="text-sm">[Message recalled]</p>
+            ) : isGroupCallNotice ? (
+              <div className="flex flex-col items-center px-4 py-2 gap-3 min-w-[200px]">
+                <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center animate-pulse">
+                  <PhoneCall className="w-6 h-6 text-green-500" />
+                </div>
+                <div className="text-center">
+                  <p className="font-bold text-[15px] mb-1">Cuộc gọi nhóm đã diễn ra</p>
+                  <p className="text-[12px] opacity-80 mb-2">Nhấn để tham gia cùng mọi người</p>
+                </div>
+                <Button 
+                   className="w-full bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg border border-green-500" 
+                   onClick={() => joinGroupCall(message.conversationId)}
+                >
+                   Tham gia cuộc gọi
+                </Button>
+              </div>
             ) : (
               <MessageBody
                 message={message}
@@ -170,21 +192,35 @@ export default function MessageRow({
 
         {/* Reaction chips — hidden on recalled messages */}
         {!message.isRecalled && groupedReactions.length > 0 && (
-          <div className={cn('flex gap-1 mt-1', isOwn ? 'mr-1' : 'ml-1')}>
+          <div className={cn('flex gap-1 mt-1 flex-wrap', isOwn ? 'mr-1 justify-end' : 'ml-1 justify-start')}>
             {groupedReactions.map(({ emoji, count, mine }) => (
-              <button
+              <div
                 key={emoji}
-                type="button"
-                onClick={() => onReact(message, emoji)}
                 className={cn(
-                  'flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs border',
+                  'group flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs border relative',
                   mine ? 'bg-primary/10 border-primary/40' : 'bg-card border-border'
                 )}
-                title={mine ? 'Remove reaction' : 'Add reaction'}
               >
-                <span>{emoji}</span>
-                <span className="text-[10px] text-muted-foreground">{count}</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onReact(message, emoji, 'add')}
+                  title="Add more"
+                  className="flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{emoji}</span>
+                  <span className="text-[10px] text-muted-foreground mr-0.5">{count}</span>
+                </button>
+                {mine && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onReact(message, emoji, 'remove'); }}
+                    title="Remove my reactions"
+                    className="w-3 h-3 flex items-center justify-center rounded-full bg-red-500/20 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-[-2px] hover:bg-red-500/40"
+                  >
+                    <span className="text-[8px] font-bold leading-none select-none flex items-center justify-center">×</span>
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )}

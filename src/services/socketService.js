@@ -58,6 +58,11 @@ class SocketService {
       if (import.meta.env.DEV) console.debug('[socket] connected', this.socket.id)
       this.connectionListeners.forEach((fn) => fn(true))
     })
+    
+    // Debug: Listen to ALL incoming events from the server
+    this.socket.onAny((eventName, ...args) => {
+      console.log(`[Socket Debug] Received event from server: "${eventName}"`, args);
+    });
     this.socket.on('disconnect', (reason) => {
       if (import.meta.env.DEV) console.debug('[socket] disconnected', reason)
       this.connectionListeners.forEach((fn) => fn(false))
