@@ -9,6 +9,7 @@ import {
   Search,
   Hash,
   Plus,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { Avatar, AvatarImage, AvatarFallback } from './ui/Avatar'
@@ -29,6 +30,7 @@ const navItems = [
   { icon: MessageCircle, label: 'Chat', path: '/chat', badgeKey: 'chat' },
   { icon: UserPlus, label: 'Friends', path: '/friends', badgeKey: 'friends' },
   { icon: BarChart3, label: 'Dashboard', path: '/dashboard' },
+  { icon: Sparkles, label: 'AI', path: '/ai' },
 ]
 
 export default function Sidebar() {

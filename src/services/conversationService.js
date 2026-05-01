@@ -97,4 +97,22 @@ export const conversationService = {
     )
     return data?.conversation
   },
+
+  /**
+   * Toggle mute status for the current user in a conversation.
+   * Returns { isMuted: boolean }
+   */
+  async toggleMute(conversationId) {
+    const data = await apiClient.post(`/conversations/${conversationId}/mute`, {})
+    return data
+  },
+
+  /**
+   * Toggle pin status for the current user in a conversation.
+   * Returns { isPinned: boolean }
+   */
+  async togglePin(conversationId) {
+    const data = await apiClient.post(`/conversations/${conversationId}/pin`, {})
+    return data
+  },
 }

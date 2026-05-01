@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Send,
@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   Film,
   Link as LinkIcon,
+  Pin,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { getInitials } from '../utils/format'
@@ -52,6 +53,10 @@ import MediaLightbox from '../components/chat/MediaLightbox'
 import BlockNotice from '../components/chat/BlockNotice'
 import TypingDots from '../components/chat/TypingDots'
 import AttachmentChip from '../components/chat/AttachmentChip'
+import MessageDetailDialog from '../components/chat/MessageDetailDialog'
+import PinnedBanner from '../components/chat/PinnedBanner'
+import VoiceRecorder from '../components/chat/VoiceRecorder'
+import ConversationInfoPanel from '../components/ConversationInfoPanel'
 
 const EMOJI_LIST = ['😀', '😂', '😍', '🥳', '😎', '🤔', '👍', '👎', '❤️', '🔥', '✨', '🎉', '💯', '🙏', '👏', '😢']
 
@@ -82,10 +87,18 @@ export default function ChatPage() {
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
+  const [showInfoPanel, setShowInfoPanel] = useState(false)
   const [autoScroll, setAutoScroll] = useState(true)
 
   // Forward dialog
   const [forwardingMessage, setForwardingMessage] = useState(null)
+
+  // Message detail dialog
+  const [detailMessage, setDetailMessage] = useState(null)
+
+  // Multi-select
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
+  const [selectedMessages, setSelectedMessages] = useState(new Set())
 
   // Media lightbox (click on image / video in a bubble to view large)
   const [lightboxAttachment, setLightboxAttachment] = useState(null)
@@ -589,6 +602,82 @@ export default function ChatPage() {
     }
   }
 
+  // Patch a message in state (used by pin/star optimistic updates)
+  const handleMessageUpdated = (updatedMessage) => {
+    setMessages((prev) =>
+      prev.map((m) => (m.id === updatedMessage.id ? { ...m, ...updatedMessage } : m))
+    )
+  }
+
+  // Multi-select
+  const handleSelectMultiple = (message) => {
+    if (!isMultiSelectMode) {
+      setIsMultiSelectMode(true)
+      setSelectedMessages(new Set([message.id]))
+    } else {
+      setSelectedMessages((prev) => {
+        const next = new Set(prev)
+        if (next.has(message.id)) next.delete(message.id)
+        else next.add(message.id)
+        return next
+      })
+    }
+  }
+
+  const handleCancelMultiSelect = () => {
+    setIsMultiSelectMode(false)
+    setSelectedMessages(new Set())
+  }
+
+  const handleDeleteSelectedForMe = async () => {
+    if (!confirm(`Xóa ${selectedMessages.size} tin nhắn ở phía bạn?`)) return
+    for (const id of selectedMessages) {
+      try { await messageService.deleteForMe(id) } catch {}
+    }
+    setMessages((prev) => prev.filter((m) => !selectedMessages.has(m.id)))
+    handleCancelMultiSelect()
+  }
+
+  const handleDeleteHistory = async () => {
+    if (!confirm('Xóa toàn bộ lịch sử trò chuyện ở phía bạn?')) return
+    try {
+      for (const msg of messages) {
+        await messageService.deleteForMe(msg.id).catch(() => {})
+      }
+      setMessages([])
+      setShowInfoPanel(false)
+    } catch (err) {
+      console.error('Delete history failed', err)
+    }
+  }
+
+  // Gửi voice message sau khi upload xong
+  const handleVoiceSend = async (attachment) => {
+    if (!attachment) return
+    let targetConvId = conversationId
+    if (isDraft) {
+      const created = await conversationService.createDirect(draftUserId)
+      if (!created) return
+      targetConvId = created.id
+      upsertConversation(created)
+      setConversation(created)
+      navigate(`/chat/${created.id}`, { replace: true })
+    }
+    try {
+      const message = await messageService.send(targetConvId, {
+        attachmentIds: [attachment.id],
+      })
+      if (message) {
+        setMessages((prev) =>
+          prev.some((m) => m.id === message.id) ? prev : [...prev, message]
+        )
+        setAutoScroll(true)
+      }
+    } catch (err) {
+      console.error('Voice send failed', err)
+    }
+  }
+
   const handleToggleReaction = async (message, emoji, action) => {
     const myUserId = currentUser?.id
     
@@ -907,7 +996,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-row h-full overflow-hidden">
+    {/* ── Chat column ── */}
+    <div className="flex-1 flex flex-col h-full min-w-0">
       {/* Chat Header */}
       <header className="h-16 px-4 pl-16 md:pl-4 border-b flex items-center justify-between bg-card">
         <div className="flex items-center gap-3 min-w-0">
@@ -990,120 +1081,38 @@ export default function ChatPage() {
           >
             <VideoIcon className="w-5 h-5" />
           </Button>
-          {conversation?.type === 'group' && (
+          {/* Nút ⋮ mở ConversationInfoPanel */}
+          {conversation && (
             <Button
               variant="ghost"
               size="icon"
               className="text-muted-foreground"
-              onClick={() => setShowGroupInfo(true)}
-              title="Group info"
+              onClick={() => setShowInfoPanel((v) => !v)}
+              title="Thông tin hội thoại"
             >
-              <Info className="w-5 h-5" />
+              <MoreVertical className="w-5 h-5" />
             </Button>
           )}
-          {conversation?.type === 'direct' && otherUser ? (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground"
-                  title="More"
-                >
-                  <MoreVertical className="w-5 h-5" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-1" align="end">
-                {headerActionError && (
-                  <p className="px-3 py-2 text-xs text-destructive">
-                    {headerActionError}
-                  </p>
-                )}
-
-                {/* Friendship actions */}
-                {isFriend && (
-                  <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-                    <UserCheck className="w-4 h-4 text-primary" />
-                    Friends
-                  </div>
-                )}
-                {!isFriend &&
-                  !friendRequestSent &&
-                  !friendRequestReceived &&
-                  !blockedByMe && (
-                    <button
-                      type="button"
-                      onClick={handleAddFriend}
-                      disabled={headerActionBusy}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted disabled:opacity-60"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      Add friend
-                    </button>
-                  )}
-                {friendRequestSent && (
-                  <button
-                    type="button"
-                    onClick={handleCancelFriendRequest}
-                    disabled={headerActionBusy}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted disabled:opacity-60"
-                  >
-                    <Clock className="w-4 h-4" />
-                    Cancel friend request
-                  </button>
-                )}
-                {friendRequestReceived && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleAcceptFriendRequest}
-                      disabled={headerActionBusy}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted disabled:opacity-60"
-                    >
-                      <UserCheck className="w-4 h-4" />
-                      Accept friend request
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelFriendRequest}
-                      disabled={headerActionBusy}
-                      className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted disabled:opacity-60"
-                    >
-                      <UserX className="w-4 h-4" />
-                      Reject
-                    </button>
-                  </>
-                )}
-
-                <div className="my-1 h-px bg-border" />
-
-                {/* Block / unblock */}
-                {blockedByMe ? (
-                  <button
-                    type="button"
-                    onClick={handleUnblockOther}
-                    disabled={headerActionBusy}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted disabled:opacity-60"
-                  >
-                    <ShieldOff className="w-4 h-4" />
-                    Unblock
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleBlockOther}
-                    disabled={headerActionBusy}
-                    className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md hover:bg-muted text-destructive disabled:opacity-60"
-                  >
-                    <Ban className="w-4 h-4" />
-                    Block
-                  </button>
-                )}
-              </PopoverContent>
-            </Popover>
-          ) : null}
         </div>
       </header>
+
+      {/* Pinned messages banner */}
+      {(() => {
+        const pinned = messages.filter((m) => m.isPinned)
+        if (pinned.length === 0) return null
+        const latest = pinned[pinned.length - 1]
+        return (
+          <PinnedBanner
+            pinned={pinned}
+            latest={latest}
+            onScrollTo={(msg) => {
+              const el = document.getElementById(`msg-${msg.id}`)
+              el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }}
+            onUnpin={(msg) => handleMessageUpdated({ ...msg, isPinned: false, pinnedBy: null, pinnedAt: null })}
+          />
+        )
+      })()}
 
       {/* Messages — single scrollable container so scrollIntoView,
           onScroll and infinite-scroll detection all agree on the same
@@ -1146,6 +1155,11 @@ export default function ChatPage() {
             onReact={handleToggleReaction}
             onForward={setForwardingMessage}
             onOpenLightbox={setLightboxAttachment}
+            onViewDetail={setDetailMessage}
+            onSelectMultiple={handleSelectMultiple}
+            onMessageUpdated={handleMessageUpdated}
+            isSelected={selectedMessages.has(message.id)}
+            isMultiSelectMode={isMultiSelectMode}
           />
         ))}
         <div ref={messagesEndRef} />
@@ -1341,6 +1355,14 @@ export default function ChatPage() {
               <Send className="w-5 h-5" />
             )}
           </Button>
+
+          {/* Voice recorder — chỉ hiện khi không có text */}
+          {!newMessage.trim() && pendingAttachments.length === 0 && !isBlocked && (
+            <VoiceRecorder
+              onSend={handleVoiceSend}
+              disabled={sending}
+            />
+          )}
         </form>
       </div>
       )}
@@ -1368,7 +1390,45 @@ export default function ChatPage() {
         attachment={lightboxAttachment}
         onClose={() => setLightboxAttachment(null)}
       />
+
+      {/* Message detail dialog */}
+      {detailMessage && (
+        <MessageDetailDialog
+          message={detailMessage}
+          onClose={() => setDetailMessage(null)}
+        />
+      )}
+
+    </div>{/* end chat column */}
+
+    {/* Info panel column */}
+    <ConversationInfoPanel
+      open={showInfoPanel}
+      onClose={() => setShowInfoPanel(false)}
+      conversation={conversation}
+      messages={messages}
+      currentUserId={currentUser?.id}
+      onDeleteHistory={handleDeleteHistory}
+      onReport={() => { setShowInfoPanel(false) }}
+      onOpenGroupInfo={() => {
+        setShowInfoPanel(false)
+        setShowGroupInfo(true)
+      }}
+      meRole={myRole}
+    />
+
+    {/* Multi-select toolbar */}
+    {isMultiSelectMode && (
+      <div className="fixed bottom-0 left-72 right-0 z-40 bg-card border-t border-border px-4 py-3 flex items-center justify-between shadow-lg">
+        <span className="text-sm font-medium">Đã chọn {selectedMessages.size} tin nhắn</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleCancelMultiSelect}>Huỷ</Button>
+          <Button variant="destructive" size="sm" disabled={selectedMessages.size === 0} onClick={handleDeleteSelectedForMe}>
+            Xóa ở phía tôi
+          </Button>
+        </div>
+      </div>
+    )}
     </div>
   )
 }
-

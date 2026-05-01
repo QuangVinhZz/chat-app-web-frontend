@@ -1,4 +1,4 @@
-import { Reply, Forward, PhoneCall } from 'lucide-react'
+import { Reply, Forward, PhoneCall, Pin, Star } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '../../utils/cn'
 import { getInitials, groupReactions } from '../../utils/format'
@@ -25,6 +25,11 @@ export default function MessageRow({
   onReact,
   onForward,
   onOpenLightbox,
+  onViewDetail,
+  onSelectMultiple,
+  onMessageUpdated,
+  isSelected,
+  isMultiSelectMode,
 }) {
   const isOwn = message.senderId === currentUserId
   const showAvatar =
@@ -39,7 +44,36 @@ export default function MessageRow({
   const isGroupCallNotice = message.content === '[GROUP_CALL:STARTED]';
 
   return (
-    <div className={cn('group flex gap-2', isOwn ? 'justify-end' : 'justify-start')}>
+    <div
+      id={`msg-${message.id}`}
+      className={cn(
+        'group flex gap-2',
+        isOwn ? 'justify-end' : 'justify-start',
+        isMultiSelectMode && 'cursor-pointer select-none'
+      )}
+      onClick={isMultiSelectMode ? () => onSelectMultiple?.(message) : undefined}
+    >
+      {/* Checkbox khi multi-select mode */}
+      {isMultiSelectMode && (
+        <div className={cn(
+          'shrink-0 flex items-center',
+          isOwn ? 'order-first' : ''
+        )}>
+          <div className={cn(
+            'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors',
+            isSelected
+              ? 'bg-primary border-primary'
+              : 'border-muted-foreground/40 bg-background'
+          )}>
+            {isSelected && (
+              <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
+
       {!isOwn && (
         <div className="w-8 shrink-0">
           {showAvatar && (
@@ -57,7 +91,8 @@ export default function MessageRow({
       <div
         className={cn(
           'max-w-[70%] flex flex-col',
-          isOwn ? 'items-end' : 'items-start'
+          isOwn ? 'items-end' : 'items-start',
+          isSelected && 'opacity-80'
         )}
       >
         {showName && (
@@ -76,6 +111,9 @@ export default function MessageRow({
               onDeleteForMe={onDeleteForMe}
               onReact={onReact}
               onForward={onForward}
+              onViewDetail={onViewDetail}
+              onSelectMultiple={onSelectMultiple}
+              onMessageUpdated={onMessageUpdated}
             />
           )}
 
@@ -175,6 +213,21 @@ export default function MessageRow({
             >
               {message.createdAt && format(new Date(message.createdAt), 'HH:mm')}
             </div>
+            {/* Pin / Star badges */}
+            {(message.isPinned || message.isStarred) && (
+              <div className={cn('flex gap-1 mt-0.5', isOwn ? 'justify-end' : 'justify-start')}>
+                {message.isPinned && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-amber-500">
+                    <Pin className="w-2.5 h-2.5" /> Đã ghim
+                  </span>
+                )}
+                {message.isStarred && (
+                  <span className="flex items-center gap-0.5 text-[10px] text-yellow-500">
+                    <Star className="w-2.5 h-2.5" /> Đã đánh dấu
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {!isOwn && (
@@ -186,6 +239,9 @@ export default function MessageRow({
               onDeleteForMe={onDeleteForMe}
               onReact={onReact}
               onForward={onForward}
+              onViewDetail={onViewDetail}
+              onSelectMultiple={onSelectMultiple}
+              onMessageUpdated={onMessageUpdated}
             />
           )}
         </div>

@@ -10,17 +10,29 @@ import ChatPage from '../pages/ChatPage'
 import ProfilePage from '../pages/ProfilePage'
 import FriendsPage from '../pages/FriendsPage'
 import DashboardPage from '../pages/DashboardPage'
+import AiPage from '../pages/AiPage'
 import { authService } from '../services/authService'
+import { tokenStorage } from '../services/apiClient'
 
 function ProtectedRoute() {
   if (!authService.isAuthenticated()) {
     return <Navigate to="/login" replace />
   }
+  // If the user is logged in but their email is not verified, send them
+  // to the verification page so they can't access the main app.
+  const user = tokenStorage.getUser()
+  if (user && !user.verifiedAt) {
+    return <Navigate to={`/verify-email?email=${encodeURIComponent(user.email)}`} replace />
+  }
   return <Outlet />
 }
 
 function PublicOnlyRoute() {
-  if (authService.isAuthenticated()) {
+  const isAuthed = authService.isAuthenticated()
+  if (isAuthed) {
+    // Allow authenticated-but-unverified users through to /verify-email
+    const user = tokenStorage.getUser()
+    if (user && !user.verifiedAt) return <Outlet />
     return <Navigate to="/chat" replace />
   }
   return <Outlet />
@@ -60,6 +72,7 @@ const router = createBrowserRouter([
           { path: '/profile', element: <ProfilePage /> },
           { path: '/friends', element: <FriendsPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/ai', element: <AiPage /> },
         ],
       },
     ],
