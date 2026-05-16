@@ -19,6 +19,9 @@ import {
   UserCheck,
   UserX,
   Clock,
+  Image as ImageIcon,
+  Film,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { getInitials } from '../utils/format'
@@ -34,6 +37,7 @@ import { friendService } from '../services/friendService'
 import { socketService } from '../services/socketService'
 import { useUserStore } from '../stores/userStore'
 import { useConversationsStore } from '../stores/conversationsStore'
+import { useCall } from '../contexts/CallContext'
 import {
   getConversationAvatarUrl,
   getConversationDisplayName,
@@ -63,6 +67,7 @@ export default function ChatPage() {
   const upsertConversation = useConversationsStore((s) => s.upsert)
   const removeConversation = useConversationsStore((s) => s.remove)
   const setActiveConversation = useConversationsStore((s) => s.setActive)
+  const { startCall, startGroupCall } = useCall()
 
   const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([]) // chronological asc
@@ -102,6 +107,8 @@ export default function ChatPage() {
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const inputRef = useRef(null)
+  const imageInputRef = useRef(null)
+  const videoInputRef = useRef(null)
   const fileInputRef = useRef(null)
 
   const scrollToBottom = useCallback((behavior = 'smooth') => {
@@ -582,54 +589,54 @@ export default function ChatPage() {
     }
   }
 
-  const handleToggleReaction = async (message, emoji) => {
+  const handleToggleReaction = async (message, emoji, action) => {
     const myUserId = currentUser?.id
-    const mine = (message.reactions ?? []).some(
-      (r) => r.userId === myUserId && r.emoji === emoji
-    )
-    // Optimistic patch
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.id !== message.id) return m
-        const base = m.reactions ?? []
-        if (mine) {
-          return {
-            ...m,
-            reactions: base.filter(
-              (r) => !(r.userId === myUserId && r.emoji === emoji)
-            ),
-          }
-        }
-        return {
-          ...m,
-          reactions: [...base, { userId: myUserId, emoji }],
-        }
-      })
-    )
-    try {
-      if (mine) await messageService.unreact(message.id, emoji)
-      else await messageService.react(message.id, emoji)
-    } catch (err) {
-      console.error('Reaction failed', err)
-      // Revert on error
+    
+    // Default action to toggle for backward compatibility if action is not provided
+    if (!action) {
+       const mine = (message.reactions ?? []).some((r) => r.userId === myUserId && r.emoji === emoji);
+       action = mine ? 'remove' : 'add';
+    }
+
+    if (action === 'add') {
+      const newReaction = { id: Date.now().toString() + Math.random(), userId: myUserId, emoji };
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== message.id) return m
           const base = m.reactions ?? []
-          if (mine) {
-            if (base.some((r) => r.userId === myUserId && r.emoji === emoji)) {
-              return m
-            }
-            return { ...m, reactions: [...base, { userId: myUserId, emoji }] }
-          }
+          return { ...m, reactions: [...base, newReaction] }
+        })
+      )
+      try {
+        await messageService.react(message.id, emoji)
+      } catch (err) {
+        console.error('Reaction Add failed', err)
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== message.id) return m
+          return { ...m, reactions: (m.reactions ?? []).filter(r => r.id !== newReaction.id) }
+        }))
+      }
+    } else if (action === 'remove') {
+      const myReactions = (message.reactions ?? []).filter(r => r.userId === myUserId && r.emoji === emoji);
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== message.id) return m
+          const base = m.reactions ?? []
           return {
             ...m,
-            reactions: base.filter(
-              (r) => !(r.userId === myUserId && r.emoji === emoji)
-            ),
+            reactions: base.filter((r) => !(r.userId === myUserId && r.emoji === emoji)),
           }
         })
       )
+      try {
+        await messageService.unreact(message.id, emoji)
+      } catch (err) {
+        console.error('Reaction Remove failed', err)
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== message.id) return m
+          return { ...m, reactions: [...(m.reactions ?? []), ...myReactions] }
+        }))
+      }
     }
   }
 
@@ -945,10 +952,42 @@ export default function ChatPage() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
+            disabled={conversation?.type === 'direct' && !isOnlineDirect}
+            onClick={() => {
+               if (conversation?.type === 'group') {
+                 startGroupCall(conversationId, 'audio', displayName);
+                 messageService.send(conversationId, { content: '[GROUP_CALL:STARTED]' }).catch(console.error);
+               } else if (otherUser?.id) {
+                 startCall(otherUser.id, 'audio', conversationId, {
+                   name: otherUser.name,
+                   avatar: otherUser.avatarUrl
+                 });
+               }
+            }}
+          >
             <Phone className="w-5 h-5" />
           </Button>
-          <Button variant="ghost" size="icon" className="text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
+            disabled={conversation?.type === 'direct' && !isOnlineDirect}
+            onClick={() => {
+               if (conversation?.type === 'group') {
+                 startGroupCall(conversationId, 'video', displayName);
+                 messageService.send(conversationId, { content: '[GROUP_CALL:STARTED]' }).catch(console.error);
+               } else if (otherUser?.id) {
+                 startCall(otherUser.id, 'video', conversationId, {
+                   name: otherUser.name,
+                   avatar: otherUser.avatarUrl
+                 });
+               }
+            }}
+          >
             <VideoIcon className="w-5 h-5" />
           </Button>
           {conversation?.type === 'group' && (
@@ -1188,6 +1227,23 @@ export default function ChatPage() {
         )}
 
         <form onSubmit={handleSendMessage} className="p-3 flex items-center gap-2">
+          {/* Hidden Pickers */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            className="hidden"
+            onChange={handleFilePicked}
+          />
+          <input
+            ref={videoInputRef}
+            type="file"
+            multiple
+            accept="video/*"
+            className="hidden"
+            onChange={handleFilePicked}
+          />
           <input
             ref={fileInputRef}
             type="file"
@@ -1195,19 +1251,46 @@ export default function ChatPage() {
             className="hidden"
             onChange={handleFilePicked}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="text-muted-foreground shrink-0"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            title="Attach file"
-          >
-            {uploading ? <Spinner size="sm" /> : <Paperclip className="w-5 h-5" />}
-          </Button>
 
-          <div className="relative flex-1">
+          <div className="flex bg-muted/30 rounded-full px-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground w-8 h-8 rounded-full"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={uploading}
+              title="Attach Images"
+            >
+              <ImageIcon className="w-4 h-4 text-blue-500" />
+            </Button>
+            
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground w-8 h-8 rounded-full"
+              onClick={() => videoInputRef.current?.click()}
+              disabled={uploading}
+              title="Attach Videos"
+            >
+              <Film className="w-4 h-4 text-red-500" />
+            </Button>
+            
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground w-8 h-8 rounded-full"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              title="Attach Files"
+            >
+              {uploading ? <Spinner size="sm" /> : <Paperclip className="w-4 h-4" />}
+            </Button>
+          </div>
+
+          <div className="relative flex-1 group">
             <Input
               ref={inputRef}
               value={newMessage}
