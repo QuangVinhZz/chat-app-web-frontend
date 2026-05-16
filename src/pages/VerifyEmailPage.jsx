@@ -6,7 +6,7 @@ import { Input } from '../components/ui/Input'
 import { Label } from '../components/ui/Label'
 import { Spinner } from '../components/ui/Spinner'
 import { authService } from '../services/authService'
-import { ApiError } from '../services/apiClient'
+import { ApiError, tokenStorage } from '../services/apiClient'
 
 export default function VerifyEmailPage() {
   const navigate = useNavigate()
@@ -27,10 +27,21 @@ export default function VerifyEmailPage() {
     setLoading(true)
     try {
       await authService.verifyEmail(email, otp)
-      navigate('/login', {
-        replace: true,
-        state: { message: 'Email verified. You can sign in now.' },
-      })
+      // If the user is already authenticated (registered then landed here),
+      // update their stored profile so verifiedAt is set, then go to the app.
+      // Otherwise send them to login.
+      if (authService.isAuthenticated()) {
+        const stored = tokenStorage.getUser()
+        if (stored) {
+          tokenStorage.setUser({ ...stored, verifiedAt: new Date().toISOString() })
+        }
+        navigate('/chat', { replace: true })
+      } else {
+        navigate('/login', {
+          replace: true,
+          state: { message: 'Email verified. You can sign in now.' },
+        })
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)

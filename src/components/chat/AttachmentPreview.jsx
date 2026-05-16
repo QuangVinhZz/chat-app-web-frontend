@@ -1,6 +1,63 @@
 import { FileText, Download, Play } from 'lucide-react'
 import { cn } from '../../utils/cn'
 import { formatFileSize } from '../../utils/format'
+import AudioPlayer from './AudioPlayer'
+import { useRef, useState, useEffect } from 'react'
+
+function formatDuration(seconds) {
+  if (!isFinite(seconds) || isNaN(seconds)) return ''
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+function VideoPreview({ attachment, onOpenLightbox }) {
+  const videoRef = useRef(null)
+  const [duration, setDuration] = useState('')
+
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    const onMeta = () => setDuration(formatDuration(v.duration))
+    v.addEventListener('loadedmetadata', onMeta)
+    return () => v.removeEventListener('loadedmetadata', onMeta)
+  }, [])
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpenLightbox?.(attachment)}
+      className="relative block rounded-2xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary group max-w-[280px]"
+      style={{ background: '#2563eb' }}
+    >
+      {/* Blue border effect */}
+      <div className="p-1.5 rounded-2xl" style={{ background: '#3b82f6' }}>
+        <div className="rounded-xl overflow-hidden relative" style={{ background: '#1e3a5f' }}>
+          <video
+            ref={videoRef}
+            src={attachment.url}
+            className="w-full max-h-52 object-cover block"
+            muted
+            playsInline
+            preload="metadata"
+          />
+          {/* Play button */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-14 h-14 rounded-full bg-black/70 flex items-center justify-center group-hover:bg-black/80 transition-colors">
+              <Play className="w-7 h-7 text-white fill-white ml-1" />
+            </div>
+          </div>
+          {/* Duration badge */}
+          {duration && (
+            <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-medium px-1.5 py-0.5 rounded">
+              {duration}
+            </div>
+          )}
+        </div>
+      </div>
+    </button>
+  )
+}
 
 /**
  * Renders one message attachment inside a bubble. Image/video clicks
@@ -26,30 +83,11 @@ export default function AttachmentPreview({ attachment, isOwn, onOpenLightbox })
   }
 
   if (attachment.type === 'video') {
-    return (
-      <button
-        type="button"
-        onClick={() => onOpenLightbox?.(attachment)}
-        className="relative block rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary group"
-      >
-        <video
-          src={attachment.url}
-          className="max-w-full max-h-80 pointer-events-none"
-          muted
-          playsInline
-          preload="metadata"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
-          <div className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center">
-            <Play className="w-6 h-6 text-white fill-white ml-0.5" />
-          </div>
-        </div>
-      </button>
-    )
+    return <VideoPreview attachment={attachment} onOpenLightbox={onOpenLightbox} />
   }
 
   if (attachment.type === 'audio') {
-    return <audio src={attachment.url} controls className="max-w-full" />
+    return <AudioPlayer url={attachment.url} isOwn={isOwn} />
   }
 
   // Document fallback.

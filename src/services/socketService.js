@@ -58,6 +58,18 @@ class SocketService {
       if (import.meta.env.DEV) console.debug('[socket] connected', this.socket.id)
       this.connectionListeners.forEach((fn) => fn(true))
     })
+
+    // Single-session enforcement: nếu tài khoản đăng nhập ở thiết bị khác,
+    // server emit event này → tự động logout tab hiện tại.
+    this.socket.on('auth:session_replaced', () => {
+      console.warn('[socket] Session replaced — logging out.')
+      // Hiện thông báo trước khi logout
+      if (typeof window !== 'undefined') {
+        alert('Tài khoản của bạn đã đăng nhập ở thiết bị khác. Bạn sẽ bị đăng xuất.')
+        tokenStorage.clear()
+        window.location.replace('/login')
+      }
+    })
     
     // Debug: Listen to ALL incoming events from the server
     this.socket.onAny((eventName, ...args) => {

@@ -170,17 +170,25 @@ async function request(method, path, options = {}) {
   try {
     return await rawRequest(method, path, options)
   } catch (err) {
-    if (
-      err instanceof ApiError &&
-      err.status === 401 &&
-      options.auth !== false &&
-      !options._retried
-    ) {
-      const newToken = await refreshAccessToken()
-      if (newToken) {
-        return rawRequest(method, path, { ...options, _retried: true })
+    if (err instanceof ApiError) {
+      if (err.status === 401 && options.auth !== false && !options._retried) {
+        const newToken = await refreshAccessToken()
+        if (newToken) {
+          return rawRequest(method, path, { ...options, _retried: true })
+        }
+        tokenStorage.clear()
       }
-      tokenStorage.clear()
+
+      // Authenticated user whose email is not yet verified — redirect to
+      // the verification page so they can complete the flow.
+      if (err.status === 403 && /email not verified/i.test(err.message)) {
+        const user = tokenStorage.getUser()
+        const email = user?.email ? `?email=${encodeURIComponent(user.email)}` : ''
+        window.location.replace(`/verify-email${email}`)
+        // Return a never-resolving promise so the caller doesn't process
+        // a partial response while the redirect is in flight.
+        return new Promise(() => {})
+      }
     }
     throw err
   }

@@ -77,4 +77,30 @@ export const messageService = {
       `/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`
     )
   },
+
+  async pin(messageId) {
+    return apiClient.post(`/messages/${messageId}/pin`, {})
+  },
+
+  async unpin(messageId) {
+    return apiClient.delete(`/messages/${messageId}/pin`)
+  },
+
+  async star(messageId) {
+    return apiClient.post(`/messages/${messageId}/star`, {})
+  },
+
+  async unstar(messageId) {
+    return apiClient.delete(`/messages/${messageId}/star`)
+  },
+
+  async listStarred() {
+    const data = await apiClient.get('/messages/starred')
+    return data?.messages ?? []
+  },
+
+  async detail(messageId) {
+    const data = await apiClient.get(`/messages/${messageId}/detail`)
+    return data // { message, readers }
+  },
 }
