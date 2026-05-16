@@ -1,14 +1,22 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { PhoneCall, Phone, PhoneOff, Mic, MicOff, Video, VideoOff } from 'lucide-react';
 import { useCall } from '../contexts/CallContext';
+import { useUserStore } from '../stores/userStore';
 import { Button } from './ui/Button';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/Avatar';
 import { getInitials } from '../utils/format';
 import { cn } from '../utils/cn';
 
-const RemoteParticipant = ({ stream, participant }) => {
+const RemoteParticipant = ({ stream, participant, remoteCameraOff }) => {
   const ref = useRef(null);
   const [hasVideo, setHasVideo] = useState(false);
+
+  const checkVideo = useCallback(() => {
+    if (!stream) { setHasVideo(false); return; }
+    const videoTrack = stream.getVideoTracks()[0];
+    const trackActive = !!videoTrack && videoTrack.enabled && !videoTrack.muted && videoTrack.readyState === 'live';
+    setHasVideo(trackActive);
+  }, [stream]);
 
   useEffect(() => {
     if (ref.current && stream) {
@@ -19,10 +27,6 @@ const RemoteParticipant = ({ stream, participant }) => {
       attemptPlay();
       ref.current.onloadedmetadata = attemptPlay;
       
-      const checkVideo = () => {
-        const videoTrack = stream.getVideoTracks()[0];
-        setHasVideo(!!videoTrack && videoTrack.enabled);
-      };
       checkVideo();
       
       // Listen for track changes (e.g., user toggles camera on/off)
@@ -32,10 +36,19 @@ const RemoteParticipant = ({ stream, participant }) => {
         videoTrack.onunmute = checkVideo;
         videoTrack.onended = checkVideo;
       }
+
+      // Also poll periodically to catch enabled/disabled changes not covered by events
+      const pollInterval = setInterval(checkVideo, 1000);
+      return () => clearInterval(pollInterval);
     } else {
       setHasVideo(false);
     }
-  }, [stream]);
+  }, [stream, checkVideo]);
+
+  // Use participant.avatar (matches CallContext data shape)
+  const avatarUrl = participant?.avatar || participant?.avatarUrl;
+  // Camera is considered off if we got explicit signal OR track-level detection says no video
+  const showAvatar = remoteCameraOff || !hasVideo;
 
   return (
     <div className="relative w-full h-full bg-gray-900 border border-white/10 rounded-xl overflow-hidden flex items-center justify-center">
@@ -45,16 +58,16 @@ const RemoteParticipant = ({ stream, participant }) => {
         playsInline
         className={cn(
           "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
-          hasVideo ? "opacity-100" : "opacity-0"
+          !showAvatar ? "opacity-100" : "opacity-0"
         )}
       />
       {/* Fallback avatar overlay for Audio calls or if video is off */}
       <div className={cn(
         "absolute inset-0 flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300 bg-gray-900 border-2 border-transparent",
-        !hasVideo ? "opacity-100 z-10" : "opacity-0 -z-10"
+        showAvatar ? "opacity-100 z-10" : "opacity-0 -z-10"
       )}>
         <Avatar className="w-20 h-20 mb-3 border-2 border-white/20 shadow-xl">
-          <AvatarImage src={participant?.avatarUrl} />
+          <AvatarImage src={avatarUrl} />
           <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
             {getInitials(participant?.name || 'User')}
           </AvatarFallback>
@@ -65,7 +78,7 @@ const RemoteParticipant = ({ stream, participant }) => {
       </div>
       
       {/* Floating name badge if video is active */}
-      {hasVideo && participant?.name && (
+      {!showAvatar && participant?.name && (
         <div className="absolute bottom-3 left-3 z-20 bg-black/50 text-white text-xs px-2 py-1 rounded-md backdrop-blur-sm">
           {participant.name}
         </div>
@@ -82,6 +95,7 @@ export default function CallOverlay() {
     remoteStream,
     remoteStreams,
     participants,
+    participantCameraOff,
     isMicMuted,
     isCameraOff,
     acceptCall,
@@ -90,6 +104,8 @@ export default function CallOverlay() {
     toggleMic,
     toggleCamera,
   } = useCall();
+
+  const currentUser = useUserStore((s) => s.user);
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -228,6 +244,7 @@ export default function CallOverlay() {
                      stream={stream}
                      isAudioCall={isAudioCall}
                      participant={participants[userId]}
+                     remoteCameraOff={!!participantCameraOff[userId]}
                   />
                 ))
              )}
@@ -241,12 +258,12 @@ export default function CallOverlay() {
               playsInline
               className={cn(
                 "absolute inset-0 w-full h-full object-cover",
-                (!remoteStream || isAudioCall) ? "opacity-0" : "opacity-100"
+                (!remoteStream || isAudioCall || (activeCall?.from && participantCameraOff[activeCall.from]) || (activeCall?.to && participantCameraOff[activeCall.to])) ? "opacity-0" : "opacity-100"
               )}
             />
 
-            {/* Avatar Display for Audio Calls or Loading State */}
-            {(!remoteStream || isAudioCall) && (
+            {/* Avatar Display for Audio Calls, Loading State, or Remote Camera Off */}
+            {(!remoteStream || isAudioCall || (activeCall?.from && participantCameraOff[activeCall.from]) || (activeCall?.to && participantCameraOff[activeCall.to])) && (
               <div className="text-white flex flex-col items-center z-10 drop-shadow-lg">
                 {activeCall?.avatar || activeCall?.name ? (
                   <Avatar className="w-32 h-32 mb-6 border-4 border-white/20 shadow-2xl animate-pulse">
@@ -278,15 +295,30 @@ export default function CallOverlay() {
           <div className={cn(
             "absolute bottom-20 right-6 z-10 w-32 md:w-48 aspect-video bg-gray-900 rounded-xl overflow-hidden shadow-2xl border-2 border-white/20 transition-all",
             isAudioCall ? "hidden" : "block",
-            isGroup ? "md:bottom-6 md:right-6" : "" // Adjust layout for group
+            isGroup ? "md:bottom-6 md:right-6" : ""
           )}>
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover rounded-lg"
+              className={cn(
+                "w-full h-full object-cover rounded-lg transition-opacity duration-300",
+                isCameraOff ? "opacity-0" : "opacity-100"
+              )}
             />
+            {/* Local avatar overlay when camera is off */}
+            {isCameraOff && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-10">
+                <Avatar className="w-12 h-12 border-2 border-white/20 shadow-lg">
+                  <AvatarImage src={currentUser?.avatarUrl} />
+                  <AvatarFallback className="text-lg bg-primary text-primary-foreground">
+                    {getInitials(currentUser?.name || 'Me')}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-white text-xs mt-1 font-medium">You</span>
+              </div>
+            )}
           </div>
         )}
       </div>

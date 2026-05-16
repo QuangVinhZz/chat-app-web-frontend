@@ -23,6 +23,7 @@ export const CallProvider = ({ children }) => {
   const [remoteStream, setRemoteStream] = useState(null); // Single 1-1
   const [remoteStreams, setRemoteStreams] = useState({}); // Group { [userId]: stream }
   const [participants, setParticipants] = useState({}); // Group { [userId]: {name, avatarUrl} }
+  const [participantCameraOff, setParticipantCameraOff] = useState({}); // { [userId]: boolean }
 
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
@@ -54,6 +55,7 @@ export const CallProvider = ({ children }) => {
     setRemoteStream(null);
     setRemoteStreams({});
     setParticipants({});
+    setParticipantCameraOff({});
   };
 
   const closeConnections = () => {
@@ -302,7 +304,20 @@ export const CallProvider = ({ children }) => {
   const toggleCamera = () => {
     if (localStreamRef.current) {
       const t = localStreamRef.current.getVideoTracks()[0];
-      if (t) { t.enabled = !t.enabled; setIsCameraOff(!t.enabled); }
+      if (t) {
+        t.enabled = !t.enabled;
+        const cameraOff = !t.enabled;
+        setIsCameraOff(cameraOff);
+        // Signal camera state to other participants
+        const active = activeCallRef.current;
+        if (active) {
+          socketService.emit('call:camera-toggle', {
+            conversationId: active.conversationId,
+            fromUserId: currentUser?.id,
+            isCameraOff: cameraOff
+          });
+        }
+      }
     }
   };
 
@@ -446,12 +461,18 @@ export const CallProvider = ({ children }) => {
            delete peerConnectionsRef.current[fromUserId];
            setRemoteStreams(prev => { const n = {...prev}; delete n[fromUserId]; return n; });
            setParticipants(prev => { const n = {...prev}; delete n[fromUserId]; return n; });
+           setParticipantCameraOff(prev => { const n = {...prev}; delete n[fromUserId]; return n; });
            
            // Auto disconnect if we are the only one left in the room
            if (Object.keys(peerConnectionsRef.current).length === 0 && callStateRef.current === 'group-connected') {
                endCall();
            }
          }
+      }),
+      socketService.on('call:camera-toggle', (payload) => {
+         const { fromUserId, isCameraOff: cameraOff } = payload;
+         if (!fromUserId || fromUserId === currentUser?.id) return;
+         setParticipantCameraOff(prev => ({ ...prev, [fromUserId]: cameraOff }));
       })
     ];
     return () => offs.forEach(off => off?.());
@@ -459,7 +480,7 @@ export const CallProvider = ({ children }) => {
 
   return (
     <CallContext.Provider value={{
-      callState, activeCall, localStream, remoteStream, remoteStreams, participants,
+      callState, activeCall, localStream, remoteStream, remoteStreams, participants, participantCameraOff,
       isMicMuted, isCameraOff,
       startCall, acceptCall, rejectCall, endCall,
       startGroupCall, joinGroupCall,
