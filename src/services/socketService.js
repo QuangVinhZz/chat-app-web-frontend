@@ -41,7 +41,7 @@ class SocketService {
     // Reuse an existing disconnected instance if present; re-auth with
     // the latest token and re-open.
     if (this.socket) {
-      this.socket.auth = { token }
+      this.socket.auth = { token, device_type: 'web' }
       this.socket.connect()
       return this.socket
     }
@@ -49,7 +49,7 @@ class SocketService {
     this.socket = io(SOCKET_URL, {
       path: '/socket.io',
       transports: ['websocket'],
-      auth: { token },
+      auth: { token, device_type: 'web' },
       autoConnect: true,
       reconnection: true,
     })
@@ -59,13 +59,22 @@ class SocketService {
       this.connectionListeners.forEach((fn) => fn(true))
     })
 
-    // Single-session enforcement: nếu tài khoản đăng nhập ở thiết bị khác,
-    // server emit event này → tự động logout tab hiện tại.
-    this.socket.on('auth:session_replaced', () => {
-      console.warn('[socket] Session replaced — logging out.')
-      // Hiện thông báo trước khi logout
+    // Single-session enforcement per device type: nếu tài khoản đăng nhập
+    // ở thiết bị khác cùng loại (web), server emit event này → tự động logout.
+    this.socket.on('auth:session_replaced', (data) => {
+      console.warn('[socket] Session replaced — logging out.', data)
       if (typeof window !== 'undefined') {
-        alert('Tài khoản của bạn đã đăng nhập ở thiết bị khác. Bạn sẽ bị đăng xuất.')
+        alert(data?.message || 'Tài khoản của bạn đã đăng nhập ở thiết bị web khác. Bạn sẽ bị đăng xuất.')
+        tokenStorage.clear()
+        window.location.replace('/login')
+      }
+    })
+
+    // Force logout (e.g. password changed on another device)
+    this.socket.on('auth:force_logout', (data) => {
+      console.warn('[socket] Force logout —', data)
+      if (typeof window !== 'undefined') {
+        alert(data?.message || 'Bạn đã bị đăng xuất.')
         tokenStorage.clear()
         window.location.replace('/login')
       }
