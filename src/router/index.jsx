@@ -11,6 +11,9 @@ import ProfilePage from '../pages/ProfilePage'
 import FriendsPage from '../pages/FriendsPage'
 import DashboardPage from '../pages/DashboardPage'
 import AiPage from '../pages/AiPage'
+import AdminPage from '../pages/AdminPage'
+import AdminUsersPage from '../pages/AdminUsersPage'
+import AdminReportsPage from '../pages/AdminReportsPage'
 import { authService } from '../services/authService'
 import { tokenStorage } from '../services/apiClient'
 
@@ -23,6 +26,14 @@ function ProtectedRoute() {
   const user = tokenStorage.getUser()
   if (user && !user.verifiedAt) {
     return <Navigate to={`/verify-email?email=${encodeURIComponent(user.email)}`} replace />
+  }
+  return <Outlet />
+}
+
+function AdminRoute() {
+  const user = tokenStorage.getUser()
+  if (!user?.isAdmin) {
+    return <Navigate to="/chat" replace />
   }
   return <Outlet />
 }
@@ -73,6 +84,14 @@ const router = createBrowserRouter([
           { path: '/friends', element: <FriendsPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/ai', element: <AiPage /> },
+          {
+            element: <AdminRoute />,
+            children: [
+              { path: '/admin', element: <AdminPage /> },
+              { path: '/admin/users', element: <AdminUsersPage /> },
+              { path: '/admin/reports', element: <AdminReportsPage /> },
+            ],
+          },
         ],
       },
     ],
