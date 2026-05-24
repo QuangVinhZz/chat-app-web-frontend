@@ -11,6 +11,7 @@ import ProfilePage from '../pages/ProfilePage'
 import FriendsPage from '../pages/FriendsPage'
 import DashboardPage from '../pages/DashboardPage'
 import AiPage from '../pages/AiPage'
+import JoinPage from '../pages/JoinPage'
 import { authService } from '../services/authService'
 import { tokenStorage } from '../services/apiClient'
 
@@ -73,6 +74,7 @@ const router = createBrowserRouter([
           { path: '/friends', element: <FriendsPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/ai', element: <AiPage /> },
+          { path: '/join/:code', element: <JoinPage /> },
         ],
       },
     ],

@@ -87,7 +87,13 @@ export default function AttachmentPreview({ attachment, isOwn, onOpenLightbox })
   }
 
   if (attachment.type === 'audio') {
-    return <AudioPlayer url={attachment.url} isOwn={isOwn} />
+    return (
+      <AudioPlayer
+        url={attachment.url}
+        isOwn={isOwn}
+        durationMs={attachment.durationMs}
+      />
+    )
   }
 
   // Document fallback.

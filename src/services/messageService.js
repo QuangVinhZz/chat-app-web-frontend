@@ -44,9 +44,18 @@ export const messageService = {
     return data?.message
   },
 
-  async uploadAttachment(file) {
+  /**
+   * Upload a file to be attached to a future message.
+   * @param {File} file
+   * @param {{ durationMs?: number, type?: 'image'|'video'|'audio'|'document' }} options
+   *   - durationMs: voice recording length (so the UI doesn't probe).
+   *   - type: override when extension misleads (e.g. .webm from MediaRecorder is audio).
+   */
+  async uploadAttachment(file, { durationMs, type } = {}) {
     const form = new FormData()
     form.append('file', file)
+    if (durationMs != null) form.append('duration_ms', String(Math.round(durationMs)))
+    if (type) form.append('type', type)
     const data = await apiClient.post('/messages/upload', form, { isForm: true })
     return data?.attachment
   },

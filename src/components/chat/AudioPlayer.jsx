@@ -15,17 +15,23 @@ function formatTime(seconds) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export default function AudioPlayer({ url, isOwn }) {
+export default function AudioPlayer({ url, isOwn, durationMs }) {
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
+  // Seed from the server-provided duration so we don't render "00:00"
+  // while the metadata loads (webm blobs in Chrome often report NaN).
+  const [duration, setDuration] = useState(durationMs ? durationMs / 1000 : 0)
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
     const onTime = () => setCurrentTime(audio.currentTime)
-    const onMeta = () => setDuration(audio.duration)
+    const onMeta = () => {
+      // Only override if the browser reports a real number; NaN/Infinity
+      // happens with seekless webm — keep the seed in that case.
+      if (isFinite(audio.duration) && audio.duration > 0) setDuration(audio.duration)
+    }
     const onEnd = () => { setPlaying(false); setCurrentTime(0) }
     audio.addEventListener('timeupdate', onTime)
     audio.addEventListener('loadedmetadata', onMeta)
