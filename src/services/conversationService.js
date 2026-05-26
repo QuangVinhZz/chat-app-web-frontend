@@ -55,11 +55,14 @@ export const conversationService = {
     return data?.inviteCode
   },
 
-  /** Update group-wide settings (currently: comments_restricted). */
+  /** Update group-wide settings (currently: comments_restricted, name). */
   async updateSettings(conversationId, settings) {
     const data = await apiClient.put(
       `/conversations/${conversationId}/settings`,
-      { comments_restricted: settings.commentsRestricted }
+      {
+        comments_restricted: settings.commentsRestricted,
+        name: settings.name,
+      }
     )
     return data?.conversation
   },

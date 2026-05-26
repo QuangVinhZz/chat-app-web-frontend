@@ -2,12 +2,14 @@
  * ConversationInfoPanel — panel "Thông tin hội thoại" trượt từ phải vào.
  * Hiển thị: avatar, tên, actions, ảnh/video, file, link, bảo mật, báo xấu, xóa lịch sử.
  */
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   X, Bell, BellOff, Pin, Users, Clock, EyeOff, AlertTriangle,
   Trash2, ChevronRight, ChevronDown, FileText,
   Link as LinkIcon, Edit2, AlarmClock, UsersRound, UserPlus, Settings,
+  Camera,
 } from 'lucide-react'
+import { conversationService } from '../services/conversationService'
 import { cn } from '../utils/cn'
 import { Avatar, AvatarImage, AvatarFallback } from './ui/Avatar'
 import { getInitials } from '../utils/format'
@@ -31,6 +33,7 @@ export default function ConversationInfoPanel({
   onOpenGroupInfo, // Add this prop to open GroupInfoDialog
   meRole, // Add role prop
   onConversationRemoved, // Propagated callback
+  onConversationUpdated,
 }) {
   const [muteNotif, setMuteNotif] = useState(false)
   const [hideConv, setHideConv] = useState(false)
@@ -41,6 +44,67 @@ export default function ConversationInfoPanel({
   const [showAutoDelete, setShowAutoDelete] = useState(false)
   const [autoDeleteValue, setAutoDeleteValue] = useState('never')
   const [showReport, setShowReport] = useState(false)
+
+  const avatarInputRef = useRef(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editingNameValue, setEditingNameValue] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
+  const handleStartEditName = () => {
+    setEditingNameValue(conversation?.name || '')
+    setIsEditingName(true)
+  }
+
+  const handleSaveName = async () => {
+    if (!editingNameValue.trim() || savingName) return
+    setSavingName(true)
+    try {
+      const updated = await conversationService.updateSettings(conversation.id, {
+        name: editingNameValue.trim(),
+      })
+      if (updated) {
+        onConversationUpdated?.(updated)
+      }
+      setIsEditingName(false)
+    } catch (err) {
+      console.error('Failed to rename group:', err)
+      alert(err?.message || 'Không thể đổi tên nhóm')
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+      alert('Chỉ chấp nhận định dạng ảnh JPG hoặc PNG.')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Kích thước ảnh đại diện phải nhỏ hơn 2MB.')
+      return
+    }
+
+    setUploadingAvatar(true)
+    try {
+      const updated = await conversationService.updateGroupAvatar(
+        conversation.id,
+        file
+      )
+      if (updated) {
+        onConversationUpdated?.(updated)
+      }
+    } catch (err) {
+      console.error('Failed to upload avatar:', err)
+      alert(err?.message || 'Không thể tải lên ảnh đại diện.')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   const displayName = getConversationDisplayName(conversation, currentUserId)
   const avatarUrl = getConversationAvatarUrl(conversation, currentUserId)
@@ -106,20 +170,78 @@ export default function ConversationInfoPanel({
         <div className="flex-1 overflow-y-auto">
           {/* Avatar + tên */}
           <div className="flex flex-col items-center py-6 px-4 border-b border-border">
-            <Avatar className={cn('h-20 w-20 mb-3', isGroup && 'rounded-xl')}>
-              <AvatarImage src={avatarUrl} alt={displayName} />
-              <AvatarFallback className={cn('text-xl', isGroup && 'rounded-xl bg-primary/20 text-primary')}>
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex items-center gap-1.5">
-              <h3 className="font-semibold text-base">{displayName}</h3>
-              {isGroup && (
-                <button type="button" className="text-muted-foreground hover:text-foreground">
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
+            <div className="relative group/avatar mb-3">
+              <Avatar className={cn('h-20 w-20', isGroup && 'rounded-xl')}>
+                <AvatarImage src={avatarUrl} alt={displayName} />
+                <AvatarFallback className={cn('text-xl', isGroup && 'rounded-xl bg-primary/20 text-primary')}>
+                  {getInitials(displayName)}
+                </AvatarFallback>
+              </Avatar>
+              {isGroup && (meRole === 'owner' || meRole === 'admin') && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute inset-0 bg-black/40 text-white rounded-xl flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity disabled:opacity-50 cursor-pointer"
+                    title="Đổi ảnh đại diện nhóm"
+                  >
+                    <Camera className="w-6 h-6" />
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                </>
               )}
             </div>
+            {isEditingName ? (
+              <div className="flex items-center gap-2 mt-1 w-full max-w-[200px]">
+                <input
+                  type="text"
+                  value={editingNameValue}
+                  onChange={(e) => setEditingNameValue(e.target.value)}
+                  className="flex-1 bg-background border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary w-full text-center"
+                  maxLength={100}
+                  autoFocus
+                  disabled={savingName}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveName}
+                  disabled={savingName || !editingNameValue.trim()}
+                  className="text-primary hover:opacity-80 p-1 shrink-0 text-xs font-semibold"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingName(false)}
+                  disabled={savingName}
+                  className="text-muted-foreground hover:opacity-80 p-1 shrink-0 text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 justify-center">
+                <h3 className="font-semibold text-base truncate max-w-[200px]" title={displayName}>
+                  {displayName}
+                </h3>
+                {isGroup && (meRole === 'owner' || meRole === 'admin') && (
+                  <button
+                    type="button"
+                    onClick={handleStartEditName}
+                    className="text-muted-foreground hover:text-foreground p-1 shrink-0"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
             {isGroup && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {conversation?.members?.length ?? 0} thành viên

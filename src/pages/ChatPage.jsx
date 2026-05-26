@@ -1469,6 +1469,7 @@ export default function ChatPage() {
       }}
       meRole={myRole}
       onConversationRemoved={handleConversationRemoved}
+      onConversationUpdated={handleConversationUpdated}
     />
 
     {/* Multi-select toolbar */}
