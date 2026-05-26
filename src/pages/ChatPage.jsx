@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Send,
@@ -1468,6 +1468,7 @@ export default function ChatPage() {
         setShowGroupInfo(true)
       }}
       meRole={myRole}
+      onConversationRemoved={handleConversationRemoved}
     />
 
     {/* Multi-select toolbar */}

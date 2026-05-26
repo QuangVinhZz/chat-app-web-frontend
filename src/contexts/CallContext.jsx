@@ -316,6 +316,11 @@ export const CallProvider = ({ children }) => {
             fromUserId: currentUser?.id,
             isCameraOff: cameraOff
           });
+          socketService.emit('group-call:camera-state', {
+            conversationId: active.conversationId,
+            fromUserId: currentUser?.id,
+            cameraOff: cameraOff
+          });
         }
       }
     }
@@ -473,6 +478,11 @@ export const CallProvider = ({ children }) => {
          const { fromUserId, isCameraOff: cameraOff } = payload;
          if (!fromUserId || fromUserId === currentUser?.id) return;
          setParticipantCameraOff(prev => ({ ...prev, [fromUserId]: cameraOff }));
+      }),
+      socketService.on('group-call:camera-state', (payload) => {
+         const { fromUserId, cameraOff } = payload;
+         if (!fromUserId || fromUserId === currentUser?.id) return;
+         setParticipantCameraOff(prev => ({ ...prev, [fromUserId]: !!cameraOff }));
       })
     ];
     return () => offs.forEach(off => off?.());

@@ -28,7 +28,7 @@ import GroupAdminsDialog from './GroupAdminsDialog'
 import DissolveGroupDialog from './DissolveGroupDialog'
 import { conversationService } from '../services/conversationService'
 
-export default function GroupSettingsDialog({ open, onClose, conversation, meRole }) {
+export default function GroupSettingsDialog({ open, onClose, conversation, meRole, onConversationRemoved }) {
   const isOwner = meRole === 'owner'
   const isAdmin = meRole === 'admin' || isOwner
 
@@ -112,6 +112,17 @@ export default function GroupSettingsDialog({ open, onClose, conversation, meRol
       navigator.share({ title: 'Tham gia nhóm', url: groupLink }).catch(() => {})
     } else {
       handleCopy()
+    }
+  }
+
+  const handleDisband = async () => {
+    try {
+      await conversationService.disband(conversation.id)
+      onClose()
+      onConversationRemoved?.(conversation.id)
+    } catch (error) {
+      console.error('Failed to disband group:', error)
+      alert(error?.message || 'Không thể giải tán nhóm')
     }
   }
 
@@ -329,9 +340,7 @@ export default function GroupSettingsDialog({ open, onClose, conversation, meRol
       <DissolveGroupDialog
         open={showDissolveGroup}
         onClose={() => setShowDissolveGroup(false)}
-        onConfirm={() => {
-          console.log('Dissolve group confirmed')
-        }}
+        onConfirm={handleDisband}
       />
     </Dialog>
   )

@@ -30,6 +30,7 @@ export default function ConversationInfoPanel({
   onReport,
   onOpenGroupInfo, // Add this prop to open GroupInfoDialog
   meRole, // Add role prop
+  onConversationRemoved, // Propagated callback
 }) {
   const [muteNotif, setMuteNotif] = useState(false)
   const [hideConv, setHideConv] = useState(false)
@@ -469,6 +470,7 @@ export default function ConversationInfoPanel({
         onClose={() => setShowGroupSettings(false)}
         conversation={conversation}
         meRole={meRole}
+        onConversationRemoved={onConversationRemoved}
       />
     </>
   )
