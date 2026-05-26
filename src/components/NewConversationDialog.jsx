@@ -63,7 +63,7 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : 'Failed to load friends.')
+          setError(err instanceof ApiError ? err.message : 'Không thể tải danh sách bạn bè.')
         }
       })
       .finally(() => {
@@ -106,9 +106,14 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
       }
       setSubmitting(true)
       try {
-        const conversation = await conversationService.joinByCode(code)
-        onCreated?.(conversation)
-        onOpenChange(false)
+        const res = await conversationService.joinByCode(code)
+        if (res && res.status === 'pending') {
+          alert(res.message || 'Yêu cầu tham gia của bạn đã được gửi và đang chờ phê duyệt.')
+          onOpenChange(false)
+        } else {
+          onCreated?.(res?.conversation)
+          onOpenChange(false)
+        }
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Mã không hợp lệ.')
       } finally {
@@ -120,11 +125,11 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
     const ids = Array.from(selected)
 
     if (ids.length === 0) {
-      setError(mode === 'direct' ? 'Pick a friend to chat with.' : 'Select at least one member.')
+      setError(mode === 'direct' ? 'Vui lòng chọn một người bạn để trò chuyện.' : 'Vui lòng chọn ít nhất một thành viên.')
       return
     }
     if (mode === 'group' && !groupName.trim()) {
-      setError('Please give the group a name.')
+      setError('Vui lòng nhập tên nhóm.')
       return
     }
 
@@ -143,7 +148,7 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
       onCreated?.(conversation)
       onOpenChange(false)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Failed to create conversation.')
+      setError(err instanceof ApiError ? err.message : 'Không thể tạo cuộc hội thoại.')
     } finally {
       setSubmitting(false)
     }
@@ -153,18 +158,18 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Start a new conversation</DialogTitle>
+          <DialogTitle>Bắt đầu cuộc trò chuyện mới</DialogTitle>
           <DialogDescription>
-            Create a 1-on-1 chat with a friend or a group with multiple members.
+            Tạo cuộc trò chuyện 1-1 với một người bạn hoặc tạo nhóm với nhiều thành viên.
           </DialogDescription>
         </DialogHeader>
 
         {/* Mode tabs */}
         <div className="flex gap-1 border-b">
           {[
-            { key: 'direct', label: 'Direct', icon: MessageCircle },
-            { key: 'group', label: 'Group', icon: Users },
-            { key: 'join', label: 'Join code', icon: QrCode },
+            { key: 'direct', label: 'Trực tiếp', icon: MessageCircle },
+            { key: 'group', label: 'Nhóm', icon: Users },
+            { key: 'join', label: 'Mã tham gia', icon: QrCode },
           ].map((t) => {
             const Icon = t.icon
             const active = mode === t.key
@@ -201,10 +206,10 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
           {mode === 'group' && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="groupName">Group name</Label>
+                <Label htmlFor="groupName">Tên nhóm</Label>
                 <Input
                   id="groupName"
-                  placeholder="e.g. Dev team"
+                  placeholder="Ví dụ: Nhóm phát triển"
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   maxLength={100}
@@ -246,11 +251,11 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
 
           {mode !== 'join' && (
           <div className="space-y-2">
-            <Label>{mode === 'direct' ? 'Pick a friend' : 'Add members'}</Label>
+            <Label>{mode === 'direct' ? 'Chọn bạn bè' : 'Thêm thành viên'}</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search friends..."
+                placeholder="Tìm kiếm bạn bè..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -264,8 +269,8 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
               ) : filteredFriends.length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground py-6">
                   {friends.length === 0
-                    ? "You don't have any friends yet."
-                    : 'No friends match your search.'}
+                    ? "Bạn chưa có người bạn nào."
+                    : 'Không tìm thấy người bạn nào khớp với tìm kiếm.'}
                 </p>
               ) : (
                 <ul>
@@ -287,10 +292,10 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
-                              {f.name || 'Unknown'}
+                              {f.name || 'Không rõ'}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">
-                              {f.isOnline ? 'Online' : f.bio || 'Offline'}
+                              {f.isOnline ? 'Đang hoạt động' : f.bio || 'Không hoạt động'}
                             </p>
                           </div>
                           {picked && <Check className="w-4 h-4 text-primary shrink-0" />}
@@ -303,7 +308,7 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
             </div>
             {mode === 'group' && selected.size > 0 && (
               <p className="text-xs text-muted-foreground">
-                {selected.size} member{selected.size === 1 ? '' : 's'} selected
+                Đã chọn {selected.size} thành viên
               </p>
             )}
           </div>
@@ -311,20 +316,20 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              Hủy
             </Button>
             <Button type="submit" disabled={submitting}>
               {submitting ? (
                 <>
                   <Spinner size="sm" className="text-primary-foreground mr-2" />
-                  {mode === 'join' ? 'Đang tham gia...' : 'Creating...'}
+                  {mode === 'join' ? 'Đang tham gia...' : 'Đang tạo...'}
                 </>
               ) : mode === 'direct' ? (
-                'Start chat'
+                'Bắt đầu trò chuyện'
               ) : mode === 'join' ? (
                 'Tham gia nhóm'
               ) : (
-                'Create group'
+                'Tạo nhóm'
               )}
             </Button>
           </DialogFooter>

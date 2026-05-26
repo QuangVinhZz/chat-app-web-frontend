@@ -39,7 +39,7 @@ export default function MainLayout() {
         {/* Sidebar drawer */}
         <div
           className={cn(
-            'fixed inset-y-0 left-0 z-40 w-72 transform transition-transform duration-200',
+            'fixed inset-y-0 left-0 z-40 w-88 transform transition-transform duration-200',
             'md:static md:translate-x-0 md:transform-none',
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           )}

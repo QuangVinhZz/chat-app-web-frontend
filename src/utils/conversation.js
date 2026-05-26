@@ -27,6 +27,7 @@ export function getConversationAvatarUrl(conversation, meId) {
 export function getConversationIsOnline(conversation, meId) {
   if (conversation?.type !== 'direct') return undefined
   const other = getOtherMember(conversation, meId)
+  if (other?.user?.email === 'ai-bot@system.local') return true
   return Boolean(other?.user?.isOnline)
 }
 

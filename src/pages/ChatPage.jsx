@@ -789,6 +789,7 @@ export default function ChatPage() {
       ? conversation?.members?.find((m) => m.user?.id !== currentUser?.id)
       : null
   const otherUser = otherMember?.user ?? null
+  const isAiBot = otherUser?.email === 'ai-bot@system.local'
 
   // Friendship flags come from the backend on direct conversations.
   const isFriend = Boolean(conversation?.isFriend)
@@ -980,9 +981,9 @@ export default function ChatPage() {
           <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
             <Bot className="w-10 h-10 text-primary" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">Welcome to ChatApp</h2>
+          <h2 className="text-xl font-semibold mb-2">Chào mừng bạn đến với ChatApp</h2>
           <p className="text-muted-foreground">
-            Select a conversation or click "New conversation" to get started.
+            Hãy chọn một cuộc trò chuyện hoặc nhấn "Tin nhắn mới" để bắt đầu.
           </p>
         </div>
       </div>
@@ -1004,10 +1005,10 @@ export default function ChatPage() {
           <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-destructive/10 flex items-center justify-center">
             <Info className="w-8 h-8 text-destructive" />
           </div>
-          <h2 className="text-lg font-semibold mb-1">Unable to load conversation</h2>
+          <h2 className="text-lg font-semibold mb-1">Không thể tải cuộc trò chuyện</h2>
           <p className="text-sm text-muted-foreground mb-4">{loadError}</p>
           <Button variant="outline" onClick={() => navigate('/chat')}>
-            Back to chat
+            Quay lại chat
           </Button>
         </div>
       </div>
@@ -1040,7 +1041,7 @@ export default function ChatPage() {
                 <AvatarImage src={displayAvatar} alt={displayName} />
                 <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
               </Avatar>
-              {isOnlineDirect !== undefined && (
+              {isOnlineDirect !== undefined && !isAiBot && (
                 <span
                   className={cn(
                     'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card',
@@ -1054,10 +1055,12 @@ export default function ChatPage() {
             <h2 className="font-semibold truncate">{displayName}</h2>
             <p className="text-xs text-muted-foreground truncate">
               {conversation?.type === 'group'
-                ? `${conversation?.members?.length ?? 0} members`
-                : isOnlineDirect
-                  ? 'Online'
-                  : 'Offline'}
+                ? `${conversation?.members?.length ?? 0} thành viên`
+                : isAiBot
+                  ? ''
+                  : isOnlineDirect
+                    ? 'Trực tuyến'
+                    : 'Ngoại tuyến'}
             </p>
           </div>
         </div>
@@ -1143,12 +1146,12 @@ export default function ChatPage() {
       >
         {isDraft && messages.length === 0 && (
           <div className="text-center py-8 text-sm text-muted-foreground">
-            Send a message to start chatting with {displayName}.
+            Gửi tin nhắn để bắt đầu trò chuyện với {displayName}.
           </div>
         )}
         {!isDraft && messages.length === 0 && (
           <div className="text-center py-8 text-sm text-muted-foreground">
-            No messages yet — say hi 👋
+            Chưa có tin nhắn nào — hãy gửi lời chào 👋
           </div>
         )}
         {loadingOlder && (
@@ -1215,8 +1218,18 @@ export default function ChatPage() {
           }}
         />
       ) : !canPost ? (
-        <div className="border-t bg-card px-4 py-3 text-center text-sm text-muted-foreground">
-          🔒 Chỉ trưởng/phó nhóm mới có thể gửi tin nhắn trong nhóm này.
+        <div className="border-t bg-card/80 backdrop-blur-sm px-4 py-3 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Info className="w-4 h-4 text-primary shrink-0" />
+          <span>
+            Chỉ <span className="text-primary font-medium">trưởng/phó nhóm</span> được gửi tin nhắn vào nhóm.{' '}
+            <button
+              type="button"
+              className="text-primary hover:underline font-medium"
+              onClick={() => {/* placeholder */}}
+            >
+              Tìm hiểu thêm
+            </button>
+          </span>
         </div>
       ) : (
       <div className="border-t bg-card">
@@ -1227,14 +1240,14 @@ export default function ChatPage() {
               <Reply className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-primary">
-                  Replying to {replyingTo.sender?.name || 'Unknown'}
+                  Đang trả lời {replyingTo.sender?.name || 'Không rõ'}
                 </p>
                 <p className="text-xs text-muted-foreground truncate mt-0.5">
                   {replyingTo.isRecalled
-                    ? '[Message recalled]'
+                    ? '[Tin nhắn đã thu hồi]'
                     : replyingTo.content ||
                       ((replyingTo.attachments?.length ?? 0) > 0
-                        ? '📎 Attachment'
+                        ? '📎 Tệp đính kèm'
                         : '')}
                 </p>
               </div>
@@ -1297,7 +1310,7 @@ export default function ChatPage() {
               className="text-muted-foreground w-8 h-8 rounded-full"
               onClick={() => imageInputRef.current?.click()}
               disabled={uploading}
-              title="Attach Images"
+              title="Đính kèm hình ảnh"
             >
               <ImageIcon className="w-4 h-4 text-blue-500" />
             </Button>
@@ -1309,7 +1322,7 @@ export default function ChatPage() {
               className="text-muted-foreground w-8 h-8 rounded-full"
               onClick={() => videoInputRef.current?.click()}
               disabled={uploading}
-              title="Attach Videos"
+              title="Đính kèm video"
             >
               <Film className="w-4 h-4 text-red-500" />
             </Button>
@@ -1321,7 +1334,7 @@ export default function ChatPage() {
               className="text-muted-foreground w-8 h-8 rounded-full"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              title="Attach Files"
+              title="Đính kèm tài liệu"
             >
               {uploading ? <Spinner size="sm" /> : <Paperclip className="w-4 h-4" />}
             </Button>
@@ -1346,7 +1359,7 @@ export default function ChatPage() {
               value={newMessage}
               onChange={handleInputChange}
               onBlur={emitTypingStop}
-              placeholder="Type a message..."
+              placeholder="Nhập tin nhắn..."
               className="pr-10"
               disabled={sending}
             />
@@ -1474,7 +1487,7 @@ export default function ChatPage() {
 
     {/* Multi-select toolbar */}
     {isMultiSelectMode && (
-      <div className="fixed bottom-0 left-72 right-0 z-40 bg-card border-t border-border px-4 py-3 flex items-center justify-between shadow-lg">
+      <div className="fixed bottom-0 left-88 right-0 z-40 bg-card border-t border-border px-4 py-3 flex items-center justify-between shadow-lg">
         <span className="text-sm font-medium">Đã chọn {selectedMessages.size} tin nhắn</span>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleCancelMultiSelect}>Huỷ</Button>

@@ -12,7 +12,14 @@ import { QRCodeSVG } from 'qrcode.react'
 import { io } from 'socket.io-client'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3333/api/v1'
-const SOCKET_URL = BASE_URL.replace('/api/v1', '')
+const SOCKET_URL = (() => {
+  try {
+    const url = new URL(BASE_URL)
+    return `${url.protocol}//${url.host}`
+  } catch {
+    return 'http://localhost:3333'
+  }
+})()
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -55,21 +62,30 @@ export default function LoginPage() {
         socketRef.current.disconnect()
       }
       
+      console.log('[QR Login] Connecting to socket at:', SOCKET_URL)
       const socket = io(SOCKET_URL, {
-        path: '/socket.io'
+        path: '/socket.io',
+        transports: ['websocket'],
       })
       socketRef.current = socket
       
       socket.on('connect', () => {
-        socket.emit('qr:join', data.qrSessionId)
+        console.log('[QR Login] Socket connected successfully! Joining room:', data.sessionId)
+        socket.emit('qr:join', data.sessionId)
+      })
+      
+      socket.on('connect_error', (err) => {
+        console.error('[QR Login] Socket connection error:', err.message || err)
       })
       
       socket.on('qr:scanned', (payload) => {
+        console.log('[QR Login] QR code scanned by:', payload.user?.name)
         setQrStatus('scanned')
         setQrUser(payload.user)
       })
       
       socket.on('qr:confirmed', (payload) => {
+        console.log('[QR Login] Login confirmed by mobile app! Redirecting to chat...')
         const { accessToken, refreshToken, user } = payload
         tokenStorage.setSession({
           token: accessToken,
@@ -82,17 +98,20 @@ export default function LoginPage() {
       })
       
       socket.on('qr:rejected', () => {
+        console.warn('[QR Login] Login request rejected by user.')
         setQrStatus('pending')
         setQrUser(null)
       })
       
       socket.on('qr:expired', () => {
+        console.warn('[QR Login] QR session has expired.')
         setQrStatus('expired')
         setQrUser(null)
       })
       
       setLoading(false)
     } catch (e) {
+      console.error('[QR Login] Failed to generate QR session:', e)
       setError('Cannot generate QR code. Try again.')
       setLoading(false)
     }

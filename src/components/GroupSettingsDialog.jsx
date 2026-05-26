@@ -26,28 +26,21 @@ import { Dialog, DialogContent } from './ui/Dialog'
 import BlockMembersDialog from './BlockMembersDialog'
 import GroupAdminsDialog from './GroupAdminsDialog'
 import DissolveGroupDialog from './DissolveGroupDialog'
+import GroupJoinRequestsDialog from './GroupJoinRequestsDialog'
 import { conversationService } from '../services/conversationService'
 
-export default function GroupSettingsDialog({ open, onClose, conversation, meRole, onConversationRemoved }) {
+export default function GroupSettingsDialog({ open, onClose, conversation, meRole, onConversationRemoved, onConversationUpdated }) {
   const isOwner = meRole === 'owner'
   const isAdmin = meRole === 'admin' || isOwner
 
   const [showBlockMembers, setShowBlockMembers] = useState(false)
   const [showGroupAdmins, setShowGroupAdmins] = useState(false)
   const [showDissolveGroup, setShowDissolveGroup] = useState(false)
-
-  // UI-only placeholders (no API yet) — kept for visual completeness.
-  const [changeNameAvatar, setChangeNameAvatar] = useState(true)
-  const [pinMessages, setPinMessages] = useState(true)
-  const [createNotes, setCreateNotes] = useState(true)
-  const [createPolls, setCreatePolls] = useState(false)
-  const [approveNewMembers, setApproveNewMembers] = useState(false)
-  const [markMessagesFromGroup, setMarkMessagesFromGroup] = useState(true)
-  const [allowNewMembersReadRecent, setAllowNewMembersReadRecent] = useState(true)
-  const [allowJoinByLink, setAllowJoinByLink] = useState(true)
+  const [showJoinRequests, setShowJoinRequests] = useState(false)
 
   // Backed by API.
-  const [sendMessages, setSendMessages] = useState(true)
+  const [commentsRestricted, setCommentsRestricted] = useState(false)
+  const [approveMembers, setApproveMembers] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
   const [rotating, setRotating] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -65,25 +58,52 @@ export default function GroupSettingsDialog({ open, onClose, conversation, meRol
 
   useEffect(() => {
     if (!open || !conversation) return
-    setSendMessages(!conversation.commentsRestricted)
+    setCommentsRestricted(conversation.commentsRestricted || false)
+    setApproveMembers(conversation.approveMembers || false)
     setInviteCode(conversation.inviteCode || '')
     setCopied(false)
   }, [open, conversation])
 
-  const persistCommentsRestricted = async (allowSend) => {
+  const persistCommentsRestricted = async (restrictedValue) => {
     if (!isAdmin) return
     try {
-      await conversationService.updateSettings(conversation.id, {
-        commentsRestricted: !allowSend,
+      const updated = await conversationService.updateSettings(conversation.id, {
+        commentsRestricted: restrictedValue,
+        approveMembers: approveMembers,
       })
-    } catch {
-      setSendMessages(!allowSend)
+      if (updated && onConversationUpdated) {
+        onConversationUpdated(updated)
+      }
+    } catch (err) {
+      console.error('Failed to update settings:', err)
+      setCommentsRestricted(!restrictedValue)
     }
   }
 
-  const handleToggleSendMessages = (next) => {
-    setSendMessages(next)
+  const handleToggleCommentsRestricted = (next) => {
+    setCommentsRestricted(next)
     persistCommentsRestricted(next)
+  }
+
+  const persistApproveMembers = async (approveValue) => {
+    if (!isAdmin) return
+    try {
+      const updated = await conversationService.updateSettings(conversation.id, {
+        commentsRestricted: commentsRestricted,
+        approveMembers: approveValue,
+      })
+      if (updated && onConversationUpdated) {
+        onConversationUpdated(updated)
+      }
+    } catch (err) {
+      console.error('Failed to update settings:', err)
+      setApproveMembers(!approveValue)
+    }
+  }
+
+  const handleToggleApproveMembers = (next) => {
+    setApproveMembers(next)
+    persistApproveMembers(next)
   }
 
   const handleRegenerate = async () => {
@@ -151,45 +171,17 @@ export default function GroupSettingsDialog({ open, onClose, conversation, meRol
         <div className="overflow-y-auto overflow-x-hidden flex-1 min-h-0 bg-muted/40 p-4 space-y-4">
           {/* Member permissions */}
           <Section title="Quyền thành viên" subtitle="Áp dụng cho mọi thành viên thường.">
-            <PermissionItem
-              icon={ImageIcon}
-              tint="blue"
-              label="Thay đổi tên & ảnh đại diện"
-              checked={changeNameAvatar}
-              onChange={setChangeNameAvatar}
-            />
-            <PermissionItem
-              icon={Pin}
-              tint="amber"
-              label="Ghim tin nhắn, ghi chú, bình chọn"
-              checked={pinMessages}
-              onChange={setPinMessages}
-            />
-            <PermissionItem
-              icon={StickyNote}
-              tint="emerald"
-              label="Tạo ghi chú, nhắc hẹn"
-              checked={createNotes}
-              onChange={setCreateNotes}
-            />
-            <PermissionItem
-              icon={BarChart3}
-              tint="purple"
-              label="Tạo bình chọn"
-              checked={createPolls}
-              onChange={setCreatePolls}
-            />
-            <PermissionItem
+             <PermissionItem
               icon={MessageSquare}
               tint="sky"
-              label="Gửi tin nhắn"
+              label="Chỉ trưởng & phó nhóm được gửi tin nhắn"
               description={
-                !sendMessages
-                  ? 'Chỉ trưởng/phó nhóm có thể gửi tin trong nhóm này.'
-                  : null
+                commentsRestricted
+                  ? 'Thành viên thường chỉ có thể đọc tin nhắn, không thể bình luận hoặc nhắn tin mới.'
+                  : 'Tất cả mọi thành viên trong nhóm đều có quyền gửi tin nhắn.'
               }
-              checked={sendMessages}
-              onChange={handleToggleSendMessages}
+              checked={commentsRestricted}
+              onChange={handleToggleCommentsRestricted}
               disabled={!isAdmin}
             />
           </Section>
@@ -201,37 +193,14 @@ export default function GroupSettingsDialog({ open, onClose, conversation, meRol
               tint="emerald"
               label="Phê duyệt thành viên mới"
               hint="Yêu cầu admin duyệt trước khi vào nhóm."
-              checked={approveNewMembers}
-              onChange={setApproveNewMembers}
-            />
-            <SettingItem
-              icon={Key}
-              tint="amber"
-              label="Đánh dấu tin nhắn từ trưởng/phó"
-              hint="Hiển thị badge cho tin từ admin."
-              checked={markMessagesFromGroup}
-              onChange={setMarkMessagesFromGroup}
-            />
-            <SettingItem
-              icon={Eye}
-              tint="sky"
-              label="Thành viên mới đọc tin gần nhất"
-              hint="Cho phép xem lịch sử trước khi join."
-              checked={allowNewMembersReadRecent}
-              onChange={setAllowNewMembersReadRecent}
-            />
-            <SettingItem
-              icon={Link2}
-              tint="purple"
-              label="Tham gia qua link / QR"
-              hint="Người lạ có thể join bằng mã."
-              checked={allowJoinByLink}
-              onChange={setAllowJoinByLink}
+              checked={approveMembers}
+              onChange={handleToggleApproveMembers}
+              disabled={!isAdmin}
             />
           </Section>
 
           {/* Invite link + QR */}
-          {allowJoinByLink && groupLink && (
+          {groupLink && (
             <Section title="Liên kết tham gia" subtitle="Chia sẻ để mời người ngoài.">
               <div className="flex gap-4">
                 <div className="shrink-0">
@@ -289,6 +258,14 @@ export default function GroupSettingsDialog({ open, onClose, conversation, meRol
 
           {/* Quick actions */}
           <Section>
+            {isAdmin && approveMembers && (
+              <NavRow
+                icon={ShieldCheck}
+                tint="emerald"
+                label="Yêu cầu phê duyệt"
+                onClick={() => setShowJoinRequests(true)}
+              />
+            )}
             <NavRow
               icon={UserPlus}
               tint="rose"
@@ -335,6 +312,13 @@ export default function GroupSettingsDialog({ open, onClose, conversation, meRol
       <GroupAdminsDialog
         open={showGroupAdmins}
         onClose={() => setShowGroupAdmins(false)}
+        conversation={conversation}
+        meRole={meRole}
+        onConversationUpdated={onConversationUpdated}
+      />
+      <GroupJoinRequestsDialog
+        open={showJoinRequests}
+        onClose={() => setShowJoinRequests(false)}
         conversation={conversation}
       />
       <DissolveGroupDialog

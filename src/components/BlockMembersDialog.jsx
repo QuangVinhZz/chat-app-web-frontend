@@ -3,6 +3,7 @@ import { ArrowLeft, X, Search } from 'lucide-react'
 import { Dialog, DialogContent } from './ui/Dialog'
 import { Avatar, AvatarImage, AvatarFallback } from './ui/Avatar'
 import { getInitials } from '../utils/format'
+import { conversationService } from '../services/conversationService'
 
 export default function BlockMembersDialog({ open, onClose, conversation }) {
   const [showSelectMembers, setShowSelectMembers] = useState(false)
@@ -15,24 +16,35 @@ export default function BlockMembersDialog({ open, onClose, conversation }) {
   ) || []
 
   const filteredMembers = blockableMembers.filter(member => {
-    const name = member.user?.fullName || member.fullName || ''
+    const user = member.user || member
+    const name = user.fullName || user.full_name || user.name || ''
     return name.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const toggleMember = (memberId) => {
+  const toggleMember = (userId) => {
     setSelectedMembers(prev => 
-      prev.includes(memberId) 
-        ? prev.filter(id => id !== memberId)
-        : [...prev, memberId]
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
     )
   }
 
-  const handleBlock = () => {
-    // Handle blocking selected members
-    console.log('Block members:', selectedMembers)
-    setShowSelectMembers(false)
-    setSelectedMembers([])
-    onClose()
+  const handleBlock = async () => {
+    if (selectedMembers.length === 0) return
+    const confirmBlock = confirm(`Bạn có chắc chắn muốn xóa ${selectedMembers.length} thành viên đã chọn ra khỏi nhóm không?`)
+    if (!confirmBlock) return
+    try {
+      for (const userId of selectedMembers) {
+        await conversationService.removeMember(conversation.id, userId)
+      }
+      setShowSelectMembers(false)
+      setSelectedMembers([])
+      onClose()
+      window.location.reload()
+    } catch (err) {
+      console.error('Failed to remove members:', err)
+      alert(err?.message || 'Không thể xóa thành viên khỏi nhóm')
+    }
   }
 
   if (showSelectMembers) {
@@ -80,12 +92,13 @@ export default function BlockMembersDialog({ open, onClose, conversation }) {
                   const user = member.user || member
                   const userName = user.fullName || user.full_name || user.name || 'Unknown'
                   const userAvatar = user.avatarUrl || user.avatar_url || null
-                  const isSelected = selectedMembers.includes(member.id)
+                  const userId = user.id || user.uuid || member.userId || member.id
+                  const isSelected = selectedMembers.includes(userId)
 
                   return (
                     <div
-                      key={member.id}
-                      onClick={() => toggleMember(member.id)}
+                      key={userId}
+                      onClick={() => toggleMember(userId)}
                       className="flex items-center gap-3 py-3 cursor-pointer hover:bg-gray-800/50 rounded-lg px-2 transition-colors"
                     >
                       <div className="relative">

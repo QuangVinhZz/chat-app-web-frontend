@@ -2,7 +2,7 @@
  * ConversationInfoPanel — panel "Thông tin hội thoại" trượt từ phải vào.
  * Hiển thị: avatar, tên, actions, ảnh/video, file, link, bảo mật, báo xấu, xóa lịch sử.
  */
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import {
   X, Bell, BellOff, Pin, Users, Clock, EyeOff, AlertTriangle,
   Trash2, ChevronRight, ChevronDown, FileText,
@@ -21,6 +21,7 @@ import ReportDialog from './ReportDialog'
 import ReminderPanel from './ReminderPanel'
 import AddMembersDialog from './AddMembersDialog'
 import GroupSettingsDialog from './GroupSettingsDialog'
+import NewConversationDialog from './NewConversationDialog'
 
 export default function ConversationInfoPanel({
   open,
@@ -36,6 +37,8 @@ export default function ConversationInfoPanel({
   onConversationUpdated,
 }) {
   const [muteNotif, setMuteNotif] = useState(false)
+  const [isPinned, setIsPinned] = useState(false)
+  const [showNewConv, setShowNewConv] = useState(false)
   const [hideConv, setHideConv] = useState(false)
   const [showMedia, setShowMedia] = useState(true)
   const [showFiles, setShowFiles] = useState(true)
@@ -44,6 +47,63 @@ export default function ConversationInfoPanel({
   const [showAutoDelete, setShowAutoDelete] = useState(false)
   const [autoDeleteValue, setAutoDeleteValue] = useState('never')
   const [showReport, setShowReport] = useState(false)
+
+  useEffect(() => {
+    if (!conversation || !currentUserId) return
+    const myMember = conversation.members?.find((m) => (m.user?.id ?? m.userId ?? m.id) === currentUserId)
+    setMuteNotif(myMember?.isMuted ?? false)
+    setIsPinned(myMember?.isPinned ?? false)
+  }, [conversation, currentUserId])
+
+  const handleToggleMute = async () => {
+    try {
+      const res = await conversationService.toggleMute(conversation.id)
+      setMuteNotif(res.isMuted)
+      if (conversation.members) {
+        const updatedMembers = conversation.members.map((m) => {
+          if ((m.user?.id ?? m.userId ?? m.id) === currentUserId) {
+            return { ...m, isMuted: res.isMuted }
+          }
+          return m
+        })
+        onConversationUpdated?.({ ...conversation, members: updatedMembers })
+      }
+    } catch (err) {
+      console.error('Failed to toggle mute:', err)
+    }
+  }
+
+  const handleTogglePin = async () => {
+    try {
+      const res = await conversationService.togglePin(conversation.id)
+      setIsPinned(res.isPinned)
+      if (conversation.members) {
+        const updatedMembers = conversation.members.map((m) => {
+          if ((m.user?.id ?? m.userId ?? m.id) === currentUserId) {
+            return { ...m, isPinned: res.isPinned }
+          }
+          return m
+        })
+        onConversationUpdated?.({ ...conversation, members: updatedMembers })
+      }
+    } catch (err) {
+      console.error('Failed to toggle pin:', err)
+    }
+  }
+
+  const handleKickMember = async (userId, userName) => {
+    if (!confirm(`Bạn có chắc chắn muốn xóa ${userName} khỏi nhóm không?`)) return
+    try {
+      await conversationService.removeMember(conversation.id, userId)
+      if (conversation.members) {
+        const updatedMembers = conversation.members.filter((m) => (m.user?.id ?? m.userId ?? m.id) !== userId)
+        onConversationUpdated?.({ ...conversation, members: updatedMembers })
+      }
+    } catch (err) {
+      console.error('Failed to remove member:', err)
+      alert(err?.message || 'Không thể xóa thành viên khỏi nhóm')
+    }
+  }
 
   const avatarInputRef = useRef(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -254,13 +314,14 @@ export default function ConversationInfoPanel({
             <ActionBtn
               icon={muteNotif ? BellOff : Bell}
               label={muteNotif ? 'Bật thông báo' : 'Tắt thông báo'}
-              onClick={() => setMuteNotif((v) => !v)}
+              onClick={handleToggleMute}
               active={muteNotif}
             />
             <ActionBtn 
               icon={Pin} 
-              label="Ghim hội thoại" 
-              onClick={() => {}} 
+              label={isPinned ? 'Bỏ ghim' : 'Ghim hội thoại'} 
+              onClick={handleTogglePin}
+              active={isPinned}
             />
             {isGroup ? (
               <>
@@ -279,7 +340,7 @@ export default function ConversationInfoPanel({
               <ActionBtn 
                 icon={Users} 
                 label="Tạo nhóm trò chuyện" 
-                onClick={() => {}} 
+                onClick={() => setShowNewConv(true)} 
                 className="col-span-2"
               />
             )}
@@ -349,6 +410,17 @@ export default function ConversationInfoPanel({
                                 </p>
                               )}
                             </div>
+                            {/* Kick button */}
+                            {isGroup && (meRole === 'owner' || (meRole === 'admin' && member.role === 'member')) && (user.id || user.uuid) !== currentUserId && (
+                              <button
+                                type="button"
+                                onClick={() => handleKickMember(user.id || user.uuid || member.userId, userName)}
+                                className="text-destructive hover:bg-destructive/10 p-1.5 rounded-md transition-colors shrink-0"
+                                title="Xóa khỏi nhóm"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         )
                       })}
@@ -593,6 +665,17 @@ export default function ConversationInfoPanel({
         conversation={conversation}
         meRole={meRole}
         onConversationRemoved={onConversationRemoved}
+        onConversationUpdated={onConversationUpdated}
+      />
+
+      {/* New Conversation/Group dialog */}
+      <NewConversationDialog
+        open={showNewConv}
+        onOpenChange={setShowNewConv}
+        onCreated={(newConv) => {
+          setShowNewConv(false)
+          window.location.reload()
+        }}
       />
     </>
   )

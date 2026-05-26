@@ -185,6 +185,13 @@ export default function AiPage() {
         </div>
       </header>
 
+      {/* 24h message deletion warning */}
+      <div className="bg-muted/30 py-2 px-4 text-center border-b border-border shrink-0">
+        <p className="text-xs text-muted-foreground/80 font-medium">
+          🕒 Tin nhắn trong cuộc trò chuyện này sẽ tự động được xóa sau 24 giờ.
+        </p>
+      </div>
+
       {/* Messages area */}
       <div
         ref={messagesContainerRef}

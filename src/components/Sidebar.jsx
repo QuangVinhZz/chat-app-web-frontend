@@ -23,15 +23,16 @@ import {
   getConversationAvatarUrl,
   getConversationDisplayName,
   getConversationIsOnline,
+  getOtherMember,
 } from '../utils/conversation'
 import NewConversationDialog from './NewConversationDialog'
 import { formatDistanceToNow } from 'date-fns'
 
 const navItems = [
-  { icon: MessageCircle, label: 'Chat', path: '/chat', badgeKey: 'chat' },
-  { icon: UserPlus, label: 'Friends', path: '/friends', badgeKey: 'friends' },
-  { icon: BarChart3, label: 'Dashboard', path: '/dashboard' },
-  { icon: Sparkles, label: 'AI', path: '/ai' },
+  { icon: MessageCircle, label: 'Trò chuyện', path: '/chat', badgeKey: 'chat' },
+  { icon: UserPlus, label: 'Bạn bè', path: '/friends', badgeKey: 'friends' },
+  { icon: BarChart3, label: 'Thống kê', path: '/dashboard' },
+  { icon: Sparkles, label: 'AI Trợ lý', path: '/ai' },
 ]
 
 export default function Sidebar() {
@@ -186,7 +187,7 @@ export default function Sidebar() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sidebar-foreground/50" />
             <Input
-              placeholder="Search conversations..."
+              placeholder="Tìm cuộc trò chuyện..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
@@ -205,7 +206,7 @@ export default function Sidebar() {
             onClick={() => setShowNewConvDialog(true)}
           >
             <Plus className="w-4 h-4" />
-            New conversation
+            Tin nhắn mới
           </Button>
         </div>
       )}
@@ -215,7 +216,7 @@ export default function Sidebar() {
         <div className="flex-1 overflow-y-auto">
           {loading && filteredConversations.length === 0 && (
             <p className="text-center text-xs text-sidebar-foreground/50 py-6">
-              Loading conversations...
+              Đang tải cuộc trò chuyện...
             </p>
           )}
 
@@ -223,12 +224,12 @@ export default function Sidebar() {
             <div className="text-center px-4 py-10">
               <p className="text-sm text-sidebar-foreground/60 mb-1">
                 {searchQuery
-                  ? 'No conversations match your search.'
-                  : 'No conversations yet.'}
+                  ? 'Không tìm thấy cuộc trò chuyện nào phù hợp.'
+                  : 'Chưa có cuộc trò chuyện nào.'}
               </p>
               {!searchQuery && (
                 <p className="text-xs text-sidebar-foreground/40">
-                  Click "New conversation" to start one.
+                  Nhấp "Tin nhắn mới" để bắt đầu trò chuyện.
                 </p>
               )}
             </div>
@@ -263,7 +264,7 @@ export default function Sidebar() {
             type="button"
             onClick={() => navigate('/profile')}
             className="flex items-center gap-3 flex-1 min-w-0 rounded-lg p-1 -m-1 hover:bg-sidebar-accent/50 transition-colors"
-            aria-label="Open profile"
+            aria-label="Xem hồ sơ"
           >
             <div className="relative">
               <Avatar className="h-9 w-9">
@@ -283,7 +284,7 @@ export default function Sidebar() {
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
               <p className="text-xs text-sidebar-foreground/60">
-                {isOnline ? 'Online' : 'Offline'}
+                {isOnline ? 'Đang hoạt động' : 'Ngoại tuyến'}
               </p>
             </div>
           </button>
@@ -293,8 +294,8 @@ export default function Sidebar() {
               size="icon"
               onClick={() => navigate('/profile')}
               className="h-8 w-8 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-              aria-label="Settings"
-              title="Settings"
+              aria-label="Cài đặt"
+              title="Cài đặt"
             >
               <Settings className="w-4 h-4" />
             </Button>
@@ -303,8 +304,8 @@ export default function Sidebar() {
               size="icon"
               onClick={handleLogout}
               className="h-8 w-8 text-sidebar-foreground/60 hover:text-destructive hover:bg-sidebar-accent"
-              aria-label="Log out"
-              title="Log out"
+              aria-label="Đăng xuất"
+              title="Đăng xuất"
             >
               <LogOut className="w-4 h-4" />
             </Button>
@@ -320,12 +321,14 @@ function ConversationItem({ conversation, meId, getInitials }) {
   const name = getConversationDisplayName(conversation, meId)
   const avatarUrl = getConversationAvatarUrl(conversation, meId)
   const online = isGroup ? undefined : getConversationIsOnline(conversation, meId)
+  const other = isGroup ? null : getOtherMember(conversation, meId)
+  const isAiBot = other?.user?.email === 'ai-bot@system.local'
   const memberCount = conversation.members?.length ?? 0
   const unread = conversation.unreadCount || 0
   const hasUnread = unread > 0
   const subtitle =
     conversation.lastMessagePreview ||
-    (isGroup ? `${memberCount} members` : 'No messages yet')
+    (isGroup ? `${memberCount} thành viên` : 'Chưa có tin nhắn nào')
 
   return (
     <NavLink
@@ -357,12 +360,14 @@ function ConversationItem({ conversation, meId, getInitials }) {
               <AvatarImage src={avatarUrl} alt={name} />
               <AvatarFallback>{getInitials(name)}</AvatarFallback>
             </Avatar>
-            <span
-              className={cn(
-                'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-sidebar-bg',
-                online ? 'bg-online' : 'bg-muted-foreground'
-              )}
-            />
+            {!isAiBot && (
+              <span
+                className={cn(
+                  'absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-sidebar-bg',
+                  online ? 'bg-online' : 'bg-muted-foreground'
+                )}
+              />
+            )}
           </>
         )}
       </div>

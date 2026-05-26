@@ -43,7 +43,7 @@ export const conversationService = {
   /** Join a group via shared invite code (from a QR scan or pasted link). */
   async joinByCode(code) {
     const data = await apiClient.post('/conversations/join', { code })
-    return data?.conversation
+    return data
   },
 
   /** Rotate the group invite code — old code/QR becomes invalid. */
@@ -55,16 +55,30 @@ export const conversationService = {
     return data?.inviteCode
   },
 
-  /** Update group-wide settings (currently: comments_restricted, name). */
+  /** Update group-wide settings (currently: comments_restricted, name, approve_members). */
   async updateSettings(conversationId, settings) {
     const data = await apiClient.put(
       `/conversations/${conversationId}/settings`,
       {
         comments_restricted: settings.commentsRestricted,
+        approve_members: settings.approveMembers,
         name: settings.name,
       }
     )
     return data?.conversation
+  },
+
+  async getJoinRequests(conversationId) {
+    const data = await apiClient.get(`/conversations/${conversationId}/join-requests`)
+    return data ?? []
+  },
+
+  async approveJoinRequest(conversationId, requestId) {
+    return apiClient.post(`/conversations/${conversationId}/join-requests/${requestId}/approve`, {})
+  },
+
+  async rejectJoinRequest(conversationId, requestId) {
+    return apiClient.post(`/conversations/${conversationId}/join-requests/${requestId}/reject`, {})
   },
 
   async addMembers(conversationId, userIds) {

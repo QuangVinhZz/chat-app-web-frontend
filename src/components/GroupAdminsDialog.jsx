@@ -3,8 +3,9 @@ import { ArrowLeft, X, Search } from 'lucide-react'
 import { Dialog, DialogContent } from './ui/Dialog'
 import { Avatar, AvatarImage, AvatarFallback } from './ui/Avatar'
 import { getInitials } from '../utils/format'
+import { conversationService } from '../services/conversationService'
 
-export default function GroupAdminsDialog({ open, onClose, conversation }) {
+export default function GroupAdminsDialog({ open, onClose, conversation, meRole, onConversationUpdated }) {
   const [showAddAdmin, setShowAddAdmin] = useState(false)
   const [showTransferOwner, setShowTransferOwner] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -33,22 +34,40 @@ export default function GroupAdminsDialog({ open, onClose, conversation }) {
     })
   }
 
-  const handleAddAdmin = () => {
+  const handleAddAdmin = async () => {
     if (selectedMember) {
-      console.log('Add admin:', selectedMember)
-      setShowAddAdmin(false)
-      setSelectedMember(null)
-      setSearchQuery('')
+      try {
+        await conversationService.updateMemberRole(conversation.id, selectedMember, 'admin')
+        window.location.reload()
+      } catch (err) {
+        console.error('Failed to add admin:', err)
+        alert(err?.message || 'Không thể thêm phó nhóm')
+      }
     }
   }
 
-  const handleTransferOwner = () => {
+  const handleTransferOwner = async () => {
     if (selectedMember) {
-      console.log('Transfer owner to:', selectedMember)
-      setShowTransferOwner(false)
-      setSelectedMember(null)
-      setSearchQuery('')
-      onClose()
+      const confirmTransfer = confirm('Bạn có chắc chắn muốn chuyển quyền trưởng nhóm không? Bạn sẽ trở thành phó nhóm.')
+      if (!confirmTransfer) return
+      try {
+        await conversationService.transferOwnership(conversation.id, selectedMember)
+        window.location.reload()
+      } catch (err) {
+        console.error('Failed to transfer ownership:', err)
+        alert(err?.message || 'Không thể chuyển quyền trưởng nhóm')
+      }
+    }
+  }
+
+  const handleRemoveAdmin = async (userId, userName) => {
+    if (!confirm(`Bạn có chắc muốn gỡ chức danh phó nhóm của ${userName}?`)) return
+    try {
+      await conversationService.updateMemberRole(conversation.id, userId, 'member')
+      window.location.reload()
+    } catch (err) {
+      console.error('Failed to demote admin:', err)
+      alert(err?.message || 'Không thể gỡ chức danh phó nhóm')
     }
   }
 
@@ -104,7 +123,7 @@ export default function GroupAdminsDialog({ open, onClose, conversation }) {
                   const user = member.user || member
                   const userName = user.fullName || user.full_name || user.name || 'Unknown'
                   const userAvatar = user.avatarUrl || user.avatar_url || null
-                  const memberId = member.id || member.userId || member.user?.id
+                  const memberId = user.id || user.uuid || member.userId || member.id
                   const isSelected = selectedMember === memberId
 
                   return (
@@ -191,27 +210,32 @@ export default function GroupAdminsDialog({ open, onClose, conversation }) {
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
           {/* Owner Section */}
-          {owner && (
-            <div className="px-4 py-4 border-b border-gray-800">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12 rounded-full">
-                  <AvatarImage 
-                    src={owner.user?.avatarUrl || owner.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(owner.user?.fullName || owner.fullName || 'U')}&background=random`}
-                    alt={owner.user?.fullName || owner.fullName} 
-                  />
-                  <AvatarFallback className="bg-primary/20 text-primary">
-                    {getInitials(owner.user?.fullName || owner.fullName || 'U')}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-200">
-                    {owner.user?.fullName || owner.fullName}
-                  </p>
-                  <p className="text-xs text-gray-400">Trưởng nhóm</p>
+          {owner && (() => {
+            const ownerUser = owner.user || owner
+            const ownerName = ownerUser.fullName || ownerUser.full_name || ownerUser.name || 'Unknown'
+            const ownerAvatar = ownerUser.avatarUrl || ownerUser.avatar_url || null
+            return (
+              <div className="px-4 py-4 border-b border-gray-800">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12 rounded-full">
+                    <AvatarImage 
+                      src={ownerAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerName)}&background=random`}
+                      alt={ownerName} 
+                    />
+                    <AvatarFallback className="bg-primary/20 text-primary">
+                      {getInitials(ownerName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-200">
+                      {ownerName}
+                    </p>
+                    <p className="text-xs text-gray-400">Trưởng nhóm</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {/* Add Admin Button */}
           <div className="px-4 py-4 border-b border-gray-800">
@@ -240,24 +264,40 @@ export default function GroupAdminsDialog({ open, onClose, conversation }) {
             <div className="px-4 py-4">
               <h3 className="text-xs text-gray-400 mb-3">PHÓ NHÓM</h3>
               <div className="space-y-3">
-                {admins.map((admin) => (
-                  <div key={admin.id} className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10 rounded-full">
-                      <AvatarImage 
-                        src={admin.user?.avatarUrl || admin.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(admin.user?.fullName || admin.fullName || 'U')}&background=random`}
-                        alt={admin.user?.fullName || admin.fullName} 
-                      />
-                      <AvatarFallback className="bg-primary/20 text-primary text-sm">
-                        {getInitials(admin.user?.fullName || admin.fullName || 'U')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-200">
-                        {admin.user?.fullName || admin.fullName}
-                      </p>
+                {admins.map((admin) => {
+                  const adminUser = admin.user || admin
+                  const adminName = adminUser.fullName || adminUser.full_name || adminUser.name || 'Unknown'
+                  const adminAvatar = adminUser.avatarUrl || adminUser.avatar_url || null
+                  const adminId = adminUser.id || adminUser.uuid || admin.id
+
+                  return (
+                    <div key={adminId} className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10 rounded-full">
+                        <AvatarImage 
+                          src={adminAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(adminName)}&background=random`}
+                          alt={adminName} 
+                        />
+                        <AvatarFallback className="bg-primary/20 text-primary text-sm">
+                          {getInitials(adminName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 flex items-center justify-between">
+                        <p className="text-sm text-gray-200">
+                          {adminName}
+                        </p>
+                        {meRole === 'owner' && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveAdmin(adminId, adminName)}
+                            className="text-xs text-red-500 hover:text-red-400 hover:underline shrink-0 ml-2"
+                          >
+                            Gỡ phó nhóm
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
