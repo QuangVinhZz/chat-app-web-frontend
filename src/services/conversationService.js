@@ -31,11 +31,36 @@ export const conversationService = {
     return data?.conversation
   },
 
-  async createGroup({ name, memberIds }) {
+  async createGroup({ name, memberIds, commentsRestricted = false }) {
     const data = await apiClient.post('/conversations/group', {
       name,
       member_ids: memberIds,
+      comments_restricted: commentsRestricted,
     })
+    return data?.conversation
+  },
+
+  /** Join a group via shared invite code (from a QR scan or pasted link). */
+  async joinByCode(code) {
+    const data = await apiClient.post('/conversations/join', { code })
+    return data?.conversation
+  },
+
+  /** Rotate the group invite code — old code/QR becomes invalid. */
+  async regenerateInviteCode(conversationId) {
+    const data = await apiClient.post(
+      `/conversations/${conversationId}/invite-code/regenerate`,
+      {}
+    )
+    return data?.inviteCode
+  },
+
+  /** Update group-wide settings (currently: comments_restricted). */
+  async updateSettings(conversationId, settings) {
+    const data = await apiClient.put(
+      `/conversations/${conversationId}/settings`,
+      { comments_restricted: settings.commentsRestricted }
+    )
     return data?.conversation
   },
 

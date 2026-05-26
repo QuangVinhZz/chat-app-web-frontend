@@ -11,9 +11,7 @@ import ProfilePage from '../pages/ProfilePage'
 import FriendsPage from '../pages/FriendsPage'
 import DashboardPage from '../pages/DashboardPage'
 import AiPage from '../pages/AiPage'
-import AdminPage from '../pages/AdminPage'
-import AdminUsersPage from '../pages/AdminUsersPage'
-import AdminReportsPage from '../pages/AdminReportsPage'
+import JoinPage from '../pages/JoinPage'
 import { authService } from '../services/authService'
 import { tokenStorage } from '../services/apiClient'
 
@@ -84,14 +82,7 @@ const router = createBrowserRouter([
           { path: '/friends', element: <FriendsPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/ai', element: <AiPage /> },
-          {
-            element: <AdminRoute />,
-            children: [
-              { path: '/admin', element: <AdminPage /> },
-              { path: '/admin/users', element: <AdminUsersPage /> },
-              { path: '/admin/reports', element: <AdminReportsPage /> },
-            ],
-          },
+          { path: '/join/:code', element: <JoinPage /> },
         ],
       },
     ],

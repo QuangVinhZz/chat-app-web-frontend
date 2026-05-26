@@ -23,6 +23,7 @@ import {
   Film,
   Link as LinkIcon,
   Pin,
+  BarChart3,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { getInitials } from '../utils/format'
@@ -56,6 +57,7 @@ import AttachmentChip from '../components/chat/AttachmentChip'
 import MessageDetailDialog from '../components/chat/MessageDetailDialog'
 import PinnedBanner from '../components/chat/PinnedBanner'
 import VoiceRecorder from '../components/chat/VoiceRecorder'
+import CreatePollDialog from '../components/CreatePollDialog'
 import ConversationInfoPanel from '../components/ConversationInfoPanel'
 
 const EMOJI_LIST = ['😀', '😂', '😍', '🥳', '😎', '🤔', '👍', '👎', '❤️', '🔥', '✨', '🎉', '💯', '🙏', '👏', '😢']
@@ -92,6 +94,9 @@ export default function ChatPage() {
 
   // Forward dialog
   const [forwardingMessage, setForwardingMessage] = useState(null)
+
+  // Poll creation
+  const [showCreatePoll, setShowCreatePoll] = useState(false)
 
   // Message detail dialog
   const [detailMessage, setDetailMessage] = useState(null)
@@ -308,6 +313,12 @@ export default function ChatPage() {
               ),
             }
           })
+        )
+      }),
+      socketService.on('poll:updated', (poll) => {
+        if (!poll?.id) return
+        setMessages((prev) =>
+          prev.map((m) => (m.poll && m.poll.id === poll.id ? { ...m, poll } : m))
         )
       }),
       socketService.on('conversation:read', (payload) => {
@@ -764,6 +775,14 @@ export default function ChatPage() {
   const blockedByOther = Boolean(conversation?.blockedByOther)
   const isBlocked = blockedByMe || blockedByOther
 
+  // Group restriction — when `comments_restricted` is on, only owner/admin
+  // can send messages or create polls. The composer is locked for everyone
+  // else with a notice.
+  const isRestrictedGroup =
+    conversation?.type === 'group' && Boolean(conversation?.commentsRestricted)
+  const canPost =
+    !isRestrictedGroup || myRole === 'owner' || myRole === 'admin'
+
   // Other participant in a direct conversation (null for groups / drafts).
   const otherMember =
     conversation?.type === 'direct'
@@ -1195,6 +1214,10 @@ export default function ChatPage() {
             )
           }}
         />
+      ) : !canPost ? (
+        <div className="border-t bg-card px-4 py-3 text-center text-sm text-muted-foreground">
+          🔒 Chỉ trưởng/phó nhóm mới có thể gửi tin nhắn trong nhóm này.
+        </div>
       ) : (
       <div className="border-t bg-card">
         {/* Reply preview above composer */}
@@ -1302,6 +1325,19 @@ export default function ChatPage() {
             >
               {uploading ? <Spinner size="sm" /> : <Paperclip className="w-4 h-4" />}
             </Button>
+
+            {conversation?.type === 'group' && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground w-8 h-8 rounded-full"
+                onClick={() => setShowCreatePoll(true)}
+                title="Tạo bình chọn"
+              >
+                <BarChart3 className="w-4 h-4 text-purple-500" />
+              </Button>
+            )}
           </div>
 
           <div className="relative flex-1 group">
@@ -1385,6 +1421,23 @@ export default function ChatPage() {
         message={forwardingMessage}
         currentConversationId={conversation?.id}
       />
+
+      {conversation?.id && (
+        <CreatePollDialog
+          open={showCreatePoll}
+          onOpenChange={setShowCreatePoll}
+          conversationId={conversation.id}
+          onCreated={({ message, poll }) => {
+            // Optimistically attach the new poll-bearing message — the
+            // socket `message:new` event will dedupe if it races us.
+            const enriched = { ...message, poll }
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === enriched.id)) return prev
+              return [...prev, enriched]
+            })
+          }}
+        />
+      )}
 
       <MediaLightbox
         attachment={lightboxAttachment}

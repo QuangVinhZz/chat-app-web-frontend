@@ -201,6 +201,8 @@ export default function MessageRow({
                 message={message}
                 isOwn={isOwn}
                 onOpenLightbox={onOpenLightbox}
+                currentUserId={currentUserId}
+                onPollUpdated={(poll) => onMessageUpdated?.({ ...message, poll })}
               />
             )}
             <div

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MessageCircle, Users, Search, Check } from 'lucide-react'
+import { MessageCircle, Users, Search, Check, QrCode } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
@@ -43,6 +43,8 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
   const [groupName, setGroupName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [commentsRestricted, setCommentsRestricted] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -51,6 +53,8 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
     setSearch('')
     setSelected(new Set())
     setGroupName('')
+    setJoinCode('')
+    setCommentsRestricted(false)
     setLoadingFriends(true)
     friendService
       .list()
@@ -93,6 +97,26 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    if (mode === 'join') {
+      const code = joinCode.trim().toUpperCase()
+      if (code.length < 4) {
+        setError('Nhập mã tham gia hợp lệ.')
+        return
+      }
+      setSubmitting(true)
+      try {
+        const conversation = await conversationService.joinByCode(code)
+        onCreated?.(conversation)
+        onOpenChange(false)
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Mã không hợp lệ.')
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
     const ids = Array.from(selected)
 
     if (ids.length === 0) {
@@ -113,6 +137,7 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
         conversation = await conversationService.createGroup({
           name: groupName.trim(),
           memberIds: ids,
+          commentsRestricted,
         })
       }
       onCreated?.(conversation)
@@ -139,6 +164,7 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
           {[
             { key: 'direct', label: 'Direct', icon: MessageCircle },
             { key: 'group', label: 'Group', icon: Users },
+            { key: 'join', label: 'Join code', icon: QrCode },
           ].map((t) => {
             const Icon = t.icon
             const active = mode === t.key
@@ -173,18 +199,52 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
           )}
 
           {mode === 'group' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="groupName">Group name</Label>
+                <Input
+                  id="groupName"
+                  placeholder="e.g. Dev team"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  maxLength={100}
+                />
+              </div>
+              <label className="flex items-start gap-2 text-sm cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={commentsRestricted}
+                  onChange={(e) => setCommentsRestricted(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>
+                  Chỉ trưởng/phó nhóm được bình luận
+                  <span className="block text-xs text-muted-foreground">
+                    Thành viên thường chỉ đọc, không gửi tin nhắn.
+                  </span>
+                </span>
+              </label>
+            </>
+          )}
+
+          {mode === 'join' && (
             <div className="space-y-2">
-              <Label htmlFor="groupName">Group name</Label>
+              <Label htmlFor="joinCode">Mã tham gia (từ QR / link)</Label>
               <Input
-                id="groupName"
-                placeholder="e.g. Dev team"
-                value={groupName}
-                onChange={(e) => setGroupName(e.target.value)}
-                maxLength={100}
+                id="joinCode"
+                placeholder="VD: AB12CD34"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                maxLength={32}
+                className="font-mono tracking-widest"
               />
+              <p className="text-xs text-muted-foreground">
+                Dán mã trưởng nhóm chia sẻ để tham gia nhóm — kể cả khi bạn không phải bạn bè.
+              </p>
             </div>
           )}
 
+          {mode !== 'join' && (
           <div className="space-y-2">
             <Label>{mode === 'direct' ? 'Pick a friend' : 'Add members'}</Label>
             <div className="relative">
@@ -247,6 +307,7 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
               </p>
             )}
           </div>
+          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -256,10 +317,12 @@ export default function NewConversationDialog({ open, onOpenChange, onCreated })
               {submitting ? (
                 <>
                   <Spinner size="sm" className="text-primary-foreground mr-2" />
-                  Creating...
+                  {mode === 'join' ? 'Đang tham gia...' : 'Creating...'}
                 </>
               ) : mode === 'direct' ? (
                 'Start chat'
+              ) : mode === 'join' ? (
+                'Tham gia nhóm'
               ) : (
                 'Create group'
               )}

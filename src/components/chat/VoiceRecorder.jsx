@@ -59,9 +59,13 @@ export default function VoiceRecorder({ onSend, disabled }) {
       const blob = new Blob(chunksRef.current, { type: mimeType })
       const ext = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm'
       const file = new File([blob], `voice_${Date.now()}.${ext}`, { type: mimeType })
+      const durationMs = seconds * 1000
       setUploading(true)
       try {
-        const att = await messageService.uploadAttachment(file)
+        const att = await messageService.uploadAttachment(file, {
+          durationMs,
+          type: 'audio',
+        })
         if (att) onSend?.(att)
       } catch (e) {
         setError('Gửi thất bại, thử lại.')

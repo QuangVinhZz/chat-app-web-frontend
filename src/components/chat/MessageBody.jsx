@@ -1,4 +1,5 @@
 import AttachmentPreview from './AttachmentPreview'
+import PollBubble from './PollBubble'
 
 /**
  * Inner body of a non-recalled message: the list of attachments
@@ -6,7 +7,7 @@ import AttachmentPreview from './AttachmentPreview'
  * the bubble wrapper (background, rounded corners, timestamp, etc.)
  * lives in one place.
  */
-export default function MessageBody({ message, isOwn, onOpenLightbox }) {
+export default function MessageBody({ message, isOwn, onOpenLightbox, currentUserId, onPollUpdated }) {
   const attachments = message.attachments ?? []
   return (
     <div className="space-y-2">
@@ -22,7 +23,17 @@ export default function MessageBody({ message, isOwn, onOpenLightbox }) {
           ))}
         </div>
       )}
-      {message.content && (
+      {message.poll && (
+        <PollBubble
+          poll={message.poll}
+          isOwn={isOwn}
+          currentUserId={currentUserId}
+          onUpdated={onPollUpdated}
+        />
+      )}
+      {/* When a poll is attached, the message content is the question — don't
+          render it twice. */}
+      {message.content && !message.poll && (
         <p className="text-sm whitespace-pre-wrap wrap-break-word">
           {message.content}
         </p>

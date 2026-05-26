@@ -9,7 +9,7 @@ export const authService = {
   async login(email, password) {
     const data = await apiClient.post(
       '/auth/login',
-      { email, password },
+      { email, password, device_type: 'web' },
       { auth: false }
     )
     tokenStorage.setSession({
@@ -20,16 +20,10 @@ export const authService = {
     return data
   },
 
-  async register({ name, email, phone, password, confirmPassword }) {
+  async register(payload) {
     const data = await apiClient.post(
       '/auth/register',
-      {
-        name,
-        email,
-        phone,
-        password,
-        password_confirmation: confirmPassword,
-      },
+      payload,
       { auth: false }
     )
     return data // { user }
@@ -64,6 +58,7 @@ export const authService = {
       current_password: currentPassword,
       password,
       password_confirmation: confirmPassword,
+      device_type: 'web',
     })
   },
 
