@@ -28,6 +28,14 @@ function ProtectedRoute() {
   return <Outlet />
 }
 
+function AdminRoute() {
+  const user = tokenStorage.getUser()
+  if (!user?.isAdmin) {
+    return <Navigate to="/chat" replace />
+  }
+  return <Outlet />
+}
+
 function PublicOnlyRoute() {
   const isAuthed = authService.isAuthenticated()
   if (isAuthed) {
