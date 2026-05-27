@@ -14,20 +14,20 @@ export default function AuthLayout() {
             <h1 className="text-4xl font-bold text-sidebar-foreground">ChatApp</h1>
           </div>
           <p className="text-sidebar-foreground/70 text-lg leading-relaxed">
-            Connect with your team in real-time. Share messages, files, and collaborate seamlessly.
+            Kết nối với đội ngũ của bạn trong thời gian thực. Chia sẻ tin nhắn, tệp tin và cộng tác mượt mà.
           </p>
           <div className="mt-12 grid grid-cols-3 gap-6 text-sidebar-foreground/60">
             <div>
               <div className="text-3xl font-bold text-primary">10k+</div>
-              <div className="text-sm">Active Users</div>
+              <div className="text-sm">Người dùng hoạt động</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-primary">50k+</div>
-              <div className="text-sm">Messages/Day</div>
+              <div className="text-sm">Tin nhắn/Ngày</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-primary">99.9%</div>
-              <div className="text-sm">Uptime</div>
+              <div className="text-sm">Hoạt động liên tục</div>
             </div>
           </div>
         </div>

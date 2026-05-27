@@ -112,7 +112,7 @@ export default function LoginPage() {
       setLoading(false)
     } catch (e) {
       console.error('[QR Login] Failed to generate QR session:', e)
-      setError('Cannot generate QR code. Try again.')
+      setError('Không thể tạo mã QR. Vui lòng thử lại.')
       setLoading(false)
     }
   }
@@ -161,7 +161,7 @@ export default function LoginPage() {
           navigate(`/verify-email?email=${encodeURIComponent(formData.email)}`)
         }
       } else {
-        setError(err.message || 'Unable to sign in. Please try again.')
+        setError(err.message || 'Không thể đăng nhập. Vui lòng thử lại.')
       }
     } finally {
       setLoading(false)
@@ -185,9 +185,9 @@ export default function LoginPage() {
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Chào mừng trở lại</h1>
         <p className="text-muted-foreground">
-          Enter your credentials or scan QR to access your account
+          Nhập thông tin hoặc quét mã QR để truy cập tài khoản của bạn
         </p>
       </div>
 
@@ -228,7 +228,7 @@ export default function LoginPage() {
                 id="email"
                 name="email"
                 type="email"
-                placeholder="john@example.com"
+                placeholder="nguoidung@example.com"
                 value={formData.email}
                 onChange={handleChange}
                 className="pl-10"
@@ -241,14 +241,14 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Mật khẩu</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 id="password"
                 name="password"
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Enter your password"
+                placeholder="Nhập mật khẩu của bạn"
                 value={formData.password}
                 onChange={handleChange}
                 className="pl-10 pr-10"
@@ -281,7 +281,7 @@ export default function LoginPage() {
               </Label>
             </div>
             <Link to="/forgot-password" className="text-sm text-primary font-medium hover:underline">
-              Forgot password?
+              Quên mật khẩu?
             </Link>
           </div>
 
@@ -289,10 +289,10 @@ export default function LoginPage() {
             {loading ? (
               <>
                 <Spinner size="sm" className="text-primary-foreground" />
-                Signing in...
+                Đang đăng nhập...
               </>
             ) : (
-              'Sign in'
+              'Đăng nhập'
             )}
           </Button>
 
@@ -346,9 +346,9 @@ export default function LoginPage() {
       )}
 
       <p className="text-center text-sm text-muted-foreground">
-        Don't have an account?{' '}
+        Chưa có tài khoản?{' '}
         <Link to="/register" className="text-primary font-medium hover:underline">
-          Sign up
+          Đăng ký
         </Link>
       </p>
     </div>

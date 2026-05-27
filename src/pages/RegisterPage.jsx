@@ -30,17 +30,17 @@ export default function RegisterPage() {
     setFieldErrors({})
 
     if (!/^\+?[0-9\s\-()]{8,20}$/.test(formData.phone.trim())) {
-      setFieldErrors({ phone: 'Please enter a valid phone number' })
+      setFieldErrors({ phone: 'Vui lòng nhập số điện thoại hợp lệ' })
       return
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setFieldErrors({ password_confirmation: 'Passwords do not match' })
+      setFieldErrors({ password_confirmation: 'Mật khẩu không khớp' })
       return
     }
 
     if (formData.password.length < 8) {
-      setFieldErrors({ password: 'Password must be at least 8 characters' })
+      setFieldErrors({ password: 'Mật khẩu phải có ít nhất 8 ký tự' })
       return
     }
 
@@ -69,7 +69,7 @@ export default function RegisterPage() {
         setError(err.message)
         setFieldErrors(err.fieldErrors)
       } else {
-        setError(err.message || 'Unable to create account. Please try again.')
+        setError(err.message || 'Không thể tạo tài khoản. Vui lòng thử lại.')
       }
     } finally {
       setLoading(false)
@@ -96,9 +96,9 @@ export default function RegisterPage() {
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Create an account</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Tạo tài khoản</h1>
         <p className="text-muted-foreground">
-          Enter your details to get started with ChatApp
+          Nhập thông tin của bạn để bắt đầu với ChatApp
         </p>
       </div>
 
@@ -110,14 +110,14 @@ export default function RegisterPage() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="name">Full Name</Label>
+          <Label htmlFor="name">Họ và Tên</Label>
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="name"
               name="name"
               type="text"
-              placeholder="John Doe"
+              placeholder="Nguyễn Văn A"
               value={formData.name}
               onChange={handleChange}
               className="pl-10"
@@ -137,7 +137,7 @@ export default function RegisterPage() {
               id="email"
               name="email"
               type="email"
-              placeholder="john@example.com"
+              placeholder="nguoidung@example.com"
               value={formData.email}
               onChange={handleChange}
               className="pl-10"
@@ -150,7 +150,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone number</Label>
+          <Label htmlFor="phone">Số điện thoại</Label>
           <div className="relative">
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -170,14 +170,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">Mật khẩu</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="password"
               name="password"
               type={showPassword ? 'text' : 'password'}
-              placeholder="Create a password"
+              placeholder="Tạo mật khẩu"
               value={formData.password}
               onChange={handleChange}
               className="pl-10 pr-10"
@@ -197,14 +197,14 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirm Password</Label>
+          <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               id="confirmPassword"
               name="confirmPassword"
               type={showPassword ? 'text' : 'password'}
-              placeholder="Confirm your password"
+              placeholder="Xác nhận mật khẩu của bạn"
               value={formData.confirmPassword}
               onChange={handleChange}
               className="pl-10"
@@ -246,18 +246,18 @@ export default function RegisterPage() {
           {loading ? (
             <>
               <Spinner size="sm" className="text-primary-foreground" />
-              Creating account...
+              Đang tạo tài khoản...
             </>
           ) : (
-            'Create account'
+            'Tạo tài khoản'
           )}
         </Button>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{' '}
+        Đã có tài khoản?{' '}
         <Link to="/login" className="text-primary font-medium hover:underline">
-          Sign in
+          Đăng nhập
         </Link>
       </p>
 
