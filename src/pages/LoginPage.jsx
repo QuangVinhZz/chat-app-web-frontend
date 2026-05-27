@@ -94,7 +94,7 @@ export default function LoginPage() {
         })
         useUserStore.getState().setUser(user)
         socket.disconnect()
-        navigate('/chat')
+        navigate('/admin')
       })
       
       socket.on('qr:rejected', () => {
@@ -151,7 +151,7 @@ export default function LoginPage() {
       }
 
       useUserStore.getState().setUser(data.user)
-      navigate('/chat')
+      navigate('/admin')
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)

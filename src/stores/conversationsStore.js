@@ -46,6 +46,9 @@ const computePreview = (c) => {
       if (action === 'left') return `${actorName} đã rời nhóm`
       if (action === 'added') return `${actorName} đã thêm ${parts[3] || 'thành viên'}`
       if (action === 'removed') return `${actorName} đã xóa ${parts[3] || 'thành viên'}`
+      if (action === 'group-name-changed') return `${actorName} đã đổi tên nhóm thành ${parts.slice(2).join(':')}`
+      if (action === 'group-avatar-changed') return `${actorName} đã đổi ảnh đại diện nhóm`
+      if (action === 'group-bg-changed') return `${actorName} đã đổi ảnh nền cuộc trò chuyện`
       if (action === 'custom') return parts.slice(2).join(':')
       if (action === 'nickname-changed') {
         const targetUuid = parts[2]
@@ -72,6 +75,9 @@ const computePreview = (c) => {
       if (action === 'left') return 'Một thành viên đã rời nhóm'
       if (action === 'added') return `Một thành viên đã được thêm vào nhóm`
       if (action === 'removed') return `Một thành viên đã bị xóa khỏi nhóm`
+      if (action === 'group-name-changed') return `Một thành viên đã đổi tên nhóm thành ${parts.slice(2).join(':')}`
+      if (action === 'group-avatar-changed') return `Một thành viên đã đổi ảnh đại diện nhóm`
+      if (action === 'group-bg-changed') return `Một thành viên đã đổi ảnh nền cuộc trò chuyện`
       if (action === 'custom') return parts.slice(2).join(':')
       if (action === 'nickname-changed') {
         const targetUuid = parts[2]
@@ -97,10 +103,12 @@ export const useConversationsStore = create((set, get) => ({
     set({ loading: true })
     try {
       const list = await conversationService.list()
-      const mapped = list.map((c) => ({
-        ...c,
-        lastMessagePreview: computePreview(c),
-      }))
+      const mapped = list
+        .filter(c => !(c.type === 'direct' && c.members?.some(m => m.user?.email === 'ai-bot@system.local')))
+        .map((c) => ({
+          ...c,
+          lastMessagePreview: computePreview(c),
+        }))
       const sorted = sortConversations(mapped)
       set({ conversations: sorted })
       return sorted
@@ -112,6 +120,12 @@ export const useConversationsStore = create((set, get) => ({
   /** Insert-or-update a single conversation (preserves unreadCount). */
   upsert: (conversation) => {
     if (!conversation) return
+    if (
+      conversation.type === 'direct' &&
+      conversation.members?.some((m) => m.user?.email === 'ai-bot@system.local')
+    ) {
+      return
+    }
     set((state) => {
       const updatedConv = {
         ...conversation,
@@ -235,6 +249,9 @@ export const useConversationsStore = create((set, get) => ({
         else if (action === 'left') previewText = `${actorName} đã rời nhóm`
         else if (action === 'added') previewText = `${actorName} đã thêm ${parts[3] || 'thành viên'}`
         else if (action === 'removed') previewText = `${actorName} đã xóa ${parts[3] || 'thành viên'}`
+        else if (action === 'group-name-changed') previewText = `${actorName} đã đổi tên nhóm thành ${parts.slice(2).join(':')}`
+        else if (action === 'group-avatar-changed') previewText = `${actorName} đã đổi ảnh đại diện nhóm`
+        else if (action === 'group-bg-changed') previewText = `${actorName} đã đổi ảnh nền cuộc trò chuyện`
         else if (action === 'custom') previewText = parts.slice(2).join(':')
         else if (action === 'nickname-changed') {
           const targetUuid = parts[2]

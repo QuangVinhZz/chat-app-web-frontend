@@ -45,6 +45,12 @@ export default function MessageRow({
       text = `${actorName} đã thêm ${parts[3] || 'thành viên'} vào nhóm`
     } else if (action === 'removed') {
       text = `${actorName} đã xóa ${parts[3] || 'thành viên'} khỏi nhóm`
+    } else if (action === 'group-name-changed') {
+      text = `${actorName} đã đổi tên nhóm thành ${parts.slice(2).join(':')}`
+    } else if (action === 'group-avatar-changed') {
+      text = `${actorName} đã đổi ảnh đại diện nhóm`
+    } else if (action === 'group-bg-changed') {
+      text = `${actorName} đã đổi ảnh nền cuộc trò chuyện`
     } else if (action === 'custom') {
       text = parts.slice(2).join(':')
     } else {
