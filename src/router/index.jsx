@@ -9,9 +9,12 @@ import ResetPasswordPage from '../pages/ResetPasswordPage'
 import ChatPage from '../pages/ChatPage'
 import ProfilePage from '../pages/ProfilePage'
 import FriendsPage from '../pages/FriendsPage'
-import DashboardPage from '../pages/DashboardPage'
+import CloudPage from '../pages/CloudPage'
 import AiPage from '../pages/AiPage'
 import JoinPage from '../pages/JoinPage'
+import AdminPage from '../pages/AdminPage'
+import AdminUsersPage from '../pages/AdminUsersPage'
+import AdminReportsPage from '../pages/AdminReportsPage'
 import { authService } from '../services/authService'
 import { tokenStorage } from '../services/apiClient'
 
@@ -80,9 +83,22 @@ const router = createBrowserRouter([
           { path: '/chat/:conversationId', element: <ChatPage /> },
           { path: '/profile', element: <ProfilePage /> },
           { path: '/friends', element: <FriendsPage /> },
-          { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/cloud', element: <CloudPage /> },
           { path: '/ai', element: <AiPage /> },
           { path: '/join/:code', element: <JoinPage /> },
+        ],
+      },
+      {
+        element: <AdminRoute />,
+        children: [
+          {
+            element: <MainLayout />,
+            children: [
+              { path: '/admin', element: <AdminPage /> },
+              { path: '/admin/users', element: <AdminUsersPage /> },
+              { path: '/admin/reports', element: <AdminReportsPage /> },
+            ],
+          },
         ],
       },
     ],

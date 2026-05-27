@@ -157,4 +157,20 @@ export const conversationService = {
     const data = await apiClient.post(`/conversations/${conversationId}/pin`, {})
     return data
   },
+
+  async updateMemberNickname(conversationId, userId, nickname) {
+    const data = await apiClient.put(
+      `/conversations/${conversationId}/members/${userId}/nickname`,
+      { nickname }
+    )
+    return data
+  },
+
+  async updateBackground(conversationId, background) {
+    const data = await apiClient.put(
+      `/conversations/${conversationId}/background`,
+      { background }
+    )
+    return data
+  },
 }

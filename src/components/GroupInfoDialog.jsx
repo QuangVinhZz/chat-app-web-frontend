@@ -12,8 +12,6 @@ import {
   Camera,
   Bell,
   BellOff,
-  Pin,
-  PinOff,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { Button } from './ui/Button'
@@ -81,9 +79,8 @@ export default function GroupInfoDialog({
   const avatarInputRef = useRef(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
-  // Mute and Pin state (from conversation member data)
+  // Mute state (from conversation member data)
   const [isMuted, setIsMuted] = useState(false)
-  const [isPinned, setIsPinned] = useState(false)
 
   // Reset transient state whenever the dialog opens/closes.
   useEffect(() => {
@@ -93,10 +90,9 @@ export default function GroupInfoDialog({
     setPicked(new Set())
     setSearch('')
     
-    // Initialize mute/pin state from conversation member data
+    // Initialize mute state from conversation member data
     const myMember = conversation?.members?.find((m) => m.user?.id === meId)
     setIsMuted(myMember?.isMuted ?? false)
-    setIsPinned(myMember?.isPinned ?? false)
   }, [open, conversation, meId])
 
   // Load friends lazily when the Add-members view is shown.
@@ -239,12 +235,6 @@ export default function GroupInfoDialog({
       setIsMuted(result.isMuted)
     })
 
-  const handleTogglePin = () =>
-    withPending('pin', async () => {
-      const result = await conversationService.togglePin(conversation.id)
-      setIsPinned(result.isPinned)
-    })
-
   // --- filtered friend list for Add view --------------------------------
   const filteredFriends = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -319,13 +309,13 @@ export default function GroupInfoDialog({
           </div>
         </DialogHeader>
 
-        {/* Mute and Pin actions */}
-        <div className="flex gap-2 pb-4 border-b">
+        {/* Mute action */}
+        <div className="pb-4 border-b">
           <button
             type="button"
             onClick={handleToggleMute}
             disabled={pending.mute}
-            className="flex-1 flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors"
+            className="w-full flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors"
           >
             {pending.mute ? (
               <Spinner size="sm" />
@@ -336,23 +326,6 @@ export default function GroupInfoDialog({
             )}
             <span className="text-xs text-muted-foreground">
               {isMuted ? 'Bật thông báo' : 'Tắt thông báo'}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={handleTogglePin}
-            disabled={pending.pin}
-            className="flex-1 flex flex-col items-center gap-2 p-3 rounded-lg hover:bg-muted transition-colors"
-          >
-            {pending.pin ? (
-              <Spinner size="sm" />
-            ) : isPinned ? (
-              <PinOff className="w-5 h-5 text-muted-foreground" />
-            ) : (
-              <Pin className="w-5 h-5 text-muted-foreground" />
-            )}
-            <span className="text-xs text-muted-foreground">
-              {isPinned ? 'Bỏ ghim' : 'Ghim hội thoại'}
             </span>
           </button>
         </div>

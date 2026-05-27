@@ -41,6 +41,10 @@ export const authService = {
     return apiClient.post('/auth/forgot-password', { email }, { auth: false })
   },
 
+  async verifyResetOtp(email, otp) {
+    return apiClient.post('/auth/verify-reset-otp', { email, otp }, { auth: false })
+  },
+
   async resetPassword({ token, password, confirmPassword }) {
     return apiClient.post(
       '/auth/reset-password',

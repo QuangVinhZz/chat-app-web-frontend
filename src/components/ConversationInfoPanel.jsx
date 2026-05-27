@@ -4,10 +4,10 @@
  */
 import { useState, useMemo, useRef, useEffect } from 'react'
 import {
-  X, Bell, BellOff, Pin, Users, Clock, EyeOff, AlertTriangle,
+  X, Bell, BellOff, Users, Clock, EyeOff, AlertTriangle,
   Trash2, ChevronRight, ChevronDown, FileText,
   Link as LinkIcon, Edit2, AlarmClock, UsersRound, UserPlus, Settings,
-  Camera,
+  Camera, Image as ImageIcon,
 } from 'lucide-react'
 import { conversationService } from '../services/conversationService'
 import { cn } from '../utils/cn'
@@ -22,6 +22,8 @@ import ReminderPanel from './ReminderPanel'
 import AddMembersDialog from './AddMembersDialog'
 import GroupSettingsDialog from './GroupSettingsDialog'
 import NewConversationDialog from './NewConversationDialog'
+import NicknameDialog from './NicknameDialog'
+import ChatBackgroundDialog from './ChatBackgroundDialog'
 
 export default function ConversationInfoPanel({
   open,
@@ -35,9 +37,10 @@ export default function ConversationInfoPanel({
   meRole, // Add role prop
   onConversationRemoved, // Propagated callback
   onConversationUpdated,
+  currentBackground = '',
+  onBackgroundChange,
 }) {
   const [muteNotif, setMuteNotif] = useState(false)
-  const [isPinned, setIsPinned] = useState(false)
   const [showNewConv, setShowNewConv] = useState(false)
   const [hideConv, setHideConv] = useState(false)
   const [showMedia, setShowMedia] = useState(true)
@@ -47,12 +50,13 @@ export default function ConversationInfoPanel({
   const [showAutoDelete, setShowAutoDelete] = useState(false)
   const [autoDeleteValue, setAutoDeleteValue] = useState('never')
   const [showReport, setShowReport] = useState(false)
+  const [showNicknameModal, setShowNicknameModal] = useState(false)
+  const [showBackgroundModal, setShowBackgroundModal] = useState(false)
 
   useEffect(() => {
     if (!conversation || !currentUserId) return
     const myMember = conversation.members?.find((m) => (m.user?.id ?? m.userId ?? m.id) === currentUserId)
     setMuteNotif(myMember?.isMuted ?? false)
-    setIsPinned(myMember?.isPinned ?? false)
   }, [conversation, currentUserId])
 
   const handleToggleMute = async () => {
@@ -70,24 +74,6 @@ export default function ConversationInfoPanel({
       }
     } catch (err) {
       console.error('Failed to toggle mute:', err)
-    }
-  }
-
-  const handleTogglePin = async () => {
-    try {
-      const res = await conversationService.togglePin(conversation.id)
-      setIsPinned(res.isPinned)
-      if (conversation.members) {
-        const updatedMembers = conversation.members.map((m) => {
-          if ((m.user?.id ?? m.userId ?? m.id) === currentUserId) {
-            return { ...m, isPinned: res.isPinned }
-          }
-          return m
-        })
-        onConversationUpdated?.({ ...conversation, members: updatedMembers })
-      }
-    } catch (err) {
-      console.error('Failed to toggle pin:', err)
     }
   }
 
@@ -187,6 +173,34 @@ export default function ConversationInfoPanel({
     )
   }, [allConversations, currentUserId, otherUserId])
 
+  const otherMemberRecord = useMemo(() => {
+    if (isGroup) return null
+    return conversation?.members?.find((m) => m.user?.id !== currentUserId) ?? null
+  }, [conversation, currentUserId, isGroup])
+
+  const handleSaveNickname = async (newNickname) => {
+    if (!otherUserId || !conversation?.id) return
+    try {
+      await conversationService.updateMemberNickname(
+        conversation.id,
+        otherUserId,
+        newNickname
+      )
+      if (conversation.members) {
+        const updatedMembers = conversation.members.map((m) => {
+          if (m.user?.id === otherUserId) {
+            return { ...m, nickname: newNickname || null }
+          }
+          return m
+        })
+        onConversationUpdated?.({ ...conversation, members: updatedMembers })
+      }
+    } catch (err) {
+      console.error('Failed to change nickname:', err)
+      alert(err?.message || 'Không thể đổi biệt danh')
+    }
+  }
+
   const [showReminders, setShowReminders] = useState(false)
   const [showCommonGroups, setShowCommonGroups] = useState(false)
   const [showGroupMembers, setShowGroupMembers] = useState(false)
@@ -195,11 +209,11 @@ export default function ConversationInfoPanel({
   // Lọc media, file, link từ messages
   const mediaAttachments = useMemo(() =>
     messages.flatMap((m) => (m.attachments ?? []).filter((a) => a.type === 'image' || a.type === 'video'))
-  , [messages])
+    , [messages])
 
   const fileAttachments = useMemo(() =>
     messages.flatMap((m) => (m.attachments ?? []).filter((a) => a.type === 'document' || a.type === 'audio'))
-  , [messages])
+    , [messages])
 
   const links = useMemo(() => {
     const urlRegex = /https?:\/\/[^\s]+/g
@@ -316,12 +330,7 @@ export default function ConversationInfoPanel({
               label={muteNotif ? 'Bật thông báo' : 'Tắt thông báo'}
               onClick={handleToggleMute}
               active={muteNotif}
-            />
-            <ActionBtn 
-              icon={Pin} 
-              label={isPinned ? 'Bỏ ghim' : 'Ghim hội thoại'} 
-              onClick={handleTogglePin}
-              active={isPinned}
+              className={isGroup ? "col-span-2" : ""}
             />
             {isGroup ? (
               <>
@@ -337,11 +346,10 @@ export default function ConversationInfoPanel({
                 />
               </>
             ) : (
-              <ActionBtn 
-                icon={Users} 
-                label="Tạo nhóm trò chuyện" 
-                onClick={() => setShowNewConv(true)} 
-                className="col-span-2"
+              <ActionBtn
+                icon={Users}
+                label="Tạo nhóm trò chuyện"
+                onClick={() => setShowNewConv(true)}
               />
             )}
           </div>
@@ -355,6 +363,44 @@ export default function ConversationInfoPanel({
             >
               <AlarmClock className="w-5 h-5 text-muted-foreground shrink-0" />
               <span className="text-sm flex-1 text-left">Danh sách nhắc hẹn</span>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </button>
+          </div>
+
+          {/* Đổi biệt danh — chỉ hiện với direct chat */}
+          {!isGroup && (
+            <div className="border-b border-border">
+              <button
+                type="button"
+                onClick={() => setShowNicknameModal(true)}
+                className="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-muted/50 transition-colors"
+              >
+                <Edit2 className="w-5 h-5 text-muted-foreground shrink-0" />
+                <div className="flex-1 text-left">
+                  <p className="text-sm">Đổi biệt danh</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {otherMemberRecord?.nickname || 'Chưa đặt biệt danh'}
+                  </p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+          )}
+
+          {/* Đổi hình nền trò chuyện — áp dụng cho cả direct chat và group chat */}
+          <div className="border-b border-border">
+            <button
+              type="button"
+              onClick={() => setShowBackgroundModal(true)}
+              className="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-muted/50 transition-colors"
+            >
+              <ImageIcon className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div className="flex-1 text-left">
+                <p className="text-sm">Hình nền trò chuyện</p>
+                <p className="text-xs text-muted-foreground">
+                  Thay đổi hình nền cho cuộc hội thoại này
+                </p>
+              </div>
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
@@ -388,13 +434,13 @@ export default function ConversationInfoPanel({
                         const user = member.user || member
                         const userName = user.fullName || user.full_name || user.name || 'Unknown'
                         const userAvatar = user.avatarUrl || user.avatar_url || null
-                        
+
                         return (
                           <div key={member.id || user.id} className="flex items-center gap-2.5 py-1.5">
                             <Avatar className="h-10 w-10 rounded-full shrink-0">
-                              <AvatarImage 
+                              <AvatarImage
                                 src={userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`}
-                                alt={userName} 
+                                alt={userName}
                               />
                               <AvatarFallback className="bg-primary/20 text-primary text-sm">
                                 {getInitials(userName)}
@@ -445,7 +491,7 @@ export default function ConversationInfoPanel({
               >
                 <UsersRound className="w-5 h-5 text-muted-foreground shrink-0" />
                 <span className="text-sm flex-1 text-left">
-                  {commonGroups.length > 0 ? `${commonGroups.length} nhóm chung` : 'Nhóm chung'}
+                  {commonGroups.length > 0 ? `${commonGroups.length} nhóm chung` : 'Nhóm tham gia'}
                 </span>
                 <ChevronRight className={cn(
                   'w-4 h-4 text-muted-foreground transition-transform',
@@ -456,7 +502,7 @@ export default function ConversationInfoPanel({
                 <div className="px-4 pb-3">
                   {commonGroups.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-3">
-                      Không có nhóm chung nào.
+                      Không có nhóm tham gia nào.
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -579,8 +625,8 @@ export default function ConversationInfoPanel({
                   <p className="text-xs text-muted-foreground">
                     {autoDeleteValue === 'never' ? 'Không bao giờ'
                       : autoDeleteValue === '1d' ? '1 ngày'
-                      : autoDeleteValue === '7d' ? '7 ngày'
-                      : '14 ngày'}
+                        : autoDeleteValue === '7d' ? '7 ngày'
+                          : '14 ngày'}
                   </p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -632,6 +678,22 @@ export default function ConversationInfoPanel({
         onClose={() => setShowAutoDelete(false)}
         currentValue={autoDeleteValue}
         onConfirm={(val) => setAutoDeleteValue(val)}
+      />
+
+      {/* Nickname dialog */}
+      <NicknameDialog
+        open={showNicknameModal}
+        onClose={() => setShowNicknameModal(false)}
+        currentNickname={otherMemberRecord?.nickname || ''}
+        onConfirm={handleSaveNickname}
+      />
+
+      {/* Background dialog */}
+      <ChatBackgroundDialog
+        open={showBackgroundModal}
+        onClose={() => setShowBackgroundModal(false)}
+        currentBackground={currentBackground}
+        onConfirm={onBackgroundChange}
       />
 
       {/* Report dialog */}

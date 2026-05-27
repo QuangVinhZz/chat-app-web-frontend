@@ -19,6 +19,75 @@ import { useUserStore } from './userStore'
 let unsubs = []
 let started = false
 
+const sortConversations = (list) => {
+  return [...list].sort((a, b) => {
+    if (a.isPinned && !b.isPinned) return -1
+    if (!a.isPinned && b.isPinned) return 1
+    if (a.isPinned && b.isPinned) {
+      return (b.pinOrder ?? 0) - (a.pinOrder ?? 0)
+    }
+    const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
+    const timeB = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
+    return timeB - timeA
+  })
+}
+
+const computePreview = (c) => {
+  if (c.messages && c.messages.length > 0) {
+    const lastMsg = c.messages[0]
+    if (lastMsg.isRecalled || lastMsg.is_recalled) return '[Message recalled]'
+    const content = lastMsg.content
+    if (content?.startsWith('__system__:')) {
+      const parts = content.split(':')
+      const action = parts[1]
+      const actorMember = c.members?.find((m) => m.user?.id === lastMsg.senderId)
+      const actorName = actorMember?.nickname || lastMsg.sender?.name || 'Thành viên'
+      if (action === 'joined') return `${actorName} đã tham gia nhóm`
+      if (action === 'left') return `${actorName} đã rời nhóm`
+      if (action === 'added') return `${actorName} đã thêm ${parts[3] || 'thành viên'}`
+      if (action === 'removed') return `${actorName} đã xóa ${parts[3] || 'thành viên'}`
+      if (action === 'custom') return parts.slice(2).join(':')
+      if (action === 'nickname-changed') {
+        const targetUuid = parts[2]
+        const newNickname = parts.slice(3).join(':')
+        const targetMember = c.members?.find((m) => m.user?.uuid === targetUuid || m.user?.id === targetUuid)
+        const targetName = targetMember?.user?.name || 'thành viên'
+        return newNickname
+          ? `${actorName} đã đặt biệt danh cho ${targetName} là ${newNickname}`
+          : `${actorName} đã gỡ biệt danh của ${targetName}`
+      }
+    }
+    return lastMsg.content
+      ? lastMsg.content
+      : (lastMsg.attachments?.length ?? 0) > 0
+        ? '[attachment]'
+        : ''
+  }
+  if (c.lastMessagePreview) {
+    const content = c.lastMessagePreview
+    if (content.startsWith('__system__:')) {
+      const parts = content.split(':')
+      const action = parts[1]
+      if (action === 'joined') return 'Một thành viên đã tham gia nhóm'
+      if (action === 'left') return 'Một thành viên đã rời nhóm'
+      if (action === 'added') return `Một thành viên đã được thêm vào nhóm`
+      if (action === 'removed') return `Một thành viên đã bị xóa khỏi nhóm`
+      if (action === 'custom') return parts.slice(2).join(':')
+      if (action === 'nickname-changed') {
+        const targetUuid = parts[2]
+        const newNickname = parts.slice(3).join(':')
+        const targetMember = c.members?.find((m) => m.user?.uuid === targetUuid || m.user?.id === targetUuid)
+        const targetName = targetMember?.user?.name || 'thành viên'
+        return newNickname
+          ? `Một thành viên đã đặt biệt danh cho ${targetName} là ${newNickname}`
+          : `Một thành viên đã gỡ biệt danh của ${targetName}`
+      }
+    }
+    return c.lastMessagePreview
+  }
+  return ''
+}
+
 export const useConversationsStore = create((set, get) => ({
   conversations: [],
   activeConversationId: null,
@@ -28,8 +97,13 @@ export const useConversationsStore = create((set, get) => ({
     set({ loading: true })
     try {
       const list = await conversationService.list()
-      set({ conversations: list })
-      return list
+      const mapped = list.map((c) => ({
+        ...c,
+        lastMessagePreview: computePreview(c),
+      }))
+      const sorted = sortConversations(mapped)
+      set({ conversations: sorted })
+      return sorted
     } finally {
       set({ loading: false })
     }
@@ -39,22 +113,26 @@ export const useConversationsStore = create((set, get) => ({
   upsert: (conversation) => {
     if (!conversation) return
     set((state) => {
-      const idx = state.conversations.findIndex((c) => c.id === conversation.id)
+      const updatedConv = {
+        ...conversation,
+        lastMessagePreview: computePreview(conversation),
+      }
+      const idx = state.conversations.findIndex((c) => c.id === updatedConv.id)
       const next = state.conversations.slice()
       if (idx === -1) {
-        next.unshift({ unreadCount: 0, ...conversation })
+        next.unshift({ unreadCount: 0, ...updatedConv })
       } else {
         next[idx] = {
           ...next[idx],
-          ...conversation,
+          ...updatedConv,
           // Keep an existing unreadCount if the incoming payload doesn't
           // carry one (e.g. upsert after a mutation that doesn't fetch
           // the count).
           unreadCount:
-            conversation.unreadCount ?? next[idx].unreadCount ?? 0,
+            updatedConv.unreadCount ?? next[idx].unreadCount ?? 0,
         }
       }
-      return { conversations: next }
+      return { conversations: sortConversations(next) }
     })
   },
 
@@ -82,6 +160,31 @@ export const useConversationsStore = create((set, get) => ({
   /** Sum of unread counts across all conversations. */
   getTotalUnread: () =>
     get().conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0),
+
+  togglePin: async (conversationId) => {
+    try {
+      const res = await conversationService.togglePin(conversationId)
+      set((state) => {
+        const next = state.conversations.map((c) => {
+          if (c.id === conversationId) {
+            return {
+              ...c,
+              isPinned: res.isPinned,
+              pinOrder: res.isPinned ? Date.now() : null,
+            }
+          }
+          return c
+        })
+        return { conversations: sortConversations(next) }
+      })
+      // Fetch fresh list from DB to sync final order
+      get().refresh().catch(() => {})
+      return res
+    } catch (err) {
+      console.error('Failed to toggle pin:', err)
+      throw err
+    }
+  },
 
   /**
    * Apply a new message to the sidebar list:
@@ -115,13 +218,34 @@ export const useConversationsStore = create((set, get) => ({
       }
 
       const current = state.conversations[idx]
-      const previewText = msg.isRecalled
+      let previewText = msg.isRecalled
         ? '[Message recalled]'
         : msg.content
           ? msg.content
           : (msg.attachments?.length ?? 0) > 0
             ? '[attachment]'
             : current.lastMessagePreview || ''
+
+      if (msg.content?.startsWith('__system__:')) {
+        const parts = msg.content.split(':')
+        const action = parts[1]
+        const actorMember = current.members?.find((m) => m.user?.id === msg.senderId)
+        const actorName = actorMember?.nickname || msg.sender?.name || 'Thành viên'
+        if (action === 'joined') previewText = `${actorName} đã tham gia nhóm`
+        else if (action === 'left') previewText = `${actorName} đã rời nhóm`
+        else if (action === 'added') previewText = `${actorName} đã thêm ${parts[3] || 'thành viên'}`
+        else if (action === 'removed') previewText = `${actorName} đã xóa ${parts[3] || 'thành viên'}`
+        else if (action === 'custom') previewText = parts.slice(2).join(':')
+        else if (action === 'nickname-changed') {
+          const targetUuid = parts[2]
+          const newNickname = parts.slice(3).join(':')
+          const targetMember = current.members?.find((m) => m.user?.uuid === targetUuid || m.user?.id === targetUuid)
+          const targetName = targetMember?.user?.name || 'thành viên'
+          previewText = newNickname
+            ? `${actorName} đã đặt biệt danh cho ${targetName} là ${newNickname}`
+            : `${actorName} đã gỡ biệt danh của ${targetName}`
+        }
+      }
 
       const updated = {
         ...current,
@@ -136,7 +260,7 @@ export const useConversationsStore = create((set, get) => ({
       const next = state.conversations.slice()
       next.splice(idx, 1)
       next.unshift(updated)
-      return { conversations: next }
+      return { conversations: sortConversations(next) }
     })
   },
 
@@ -209,7 +333,25 @@ export const useConversationsStore = create((set, get) => ({
       socketService.on('friend:blocked', () => get().refresh().catch(() => {})),
       socketService.on('friend:blocked-by', () => get().refresh().catch(() => {})),
       socketService.on('friend:unblocked', () => get().refresh().catch(() => {})),
-      socketService.on('friend:unblocked-by', () => get().refresh().catch(() => {}))
+      socketService.on('friend:unblocked-by', () => get().refresh().catch(() => {})),
+      socketService.on('presence:changed', ({ userId, isOnline, lastSeenAt }) => {
+        set((state) => {
+          const next = state.conversations.map((c) => {
+            if (c.type !== 'direct') return c
+            const members = c.members?.map((m) => {
+              if (m.user?.id === userId) {
+                return {
+                  ...m,
+                  user: { ...m.user, isOnline, lastSeenAt },
+                }
+              }
+              return m
+            })
+            return { ...c, members }
+          })
+          return { conversations: next }
+        })
+      })
     )
   },
 

@@ -43,6 +43,10 @@ export const userService = {
     return data.user
   },
 
+  async getUserStatistics() {
+    return apiClient.get('/user/statistics')
+  },
+
   async updateProfile(payload) {
     const data = await apiClient.put('/user/profile', {
       name: payload.name,
@@ -56,6 +60,12 @@ export const userService = {
     const form = new FormData()
     form.append('avatar', file)
     const data = await apiClient.put('/user/avatar', form, { isForm: true })
+    tokenStorage.setUser(data.user)
+    return data.user
+  },
+
+  async updatePrivacySettings(isPrivatePresence) {
+    const data = await apiClient.put('/user/privacy', { isPrivatePresence })
     tokenStorage.setUser(data.user)
     return data.user
   },

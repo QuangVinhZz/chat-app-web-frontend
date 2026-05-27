@@ -5,6 +5,8 @@ import {
   MessageCircle,
   FileText,
   BarChart3,
+  ArrowLeft,
+  LogOut,
 } from "lucide-react";
 import {
   LineChart,
@@ -25,9 +27,22 @@ import {
 import { Button } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
 import { adminService } from "../services/adminService";
-import { Link } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useUserStore } from "../stores/userStore";
+import { useFriendsStore } from "../stores/friendsStore";
+import { useConversationsStore } from "../stores/conversationsStore";
 
 export default function AdminPage() {
+  const navigate = useNavigate();
+  const logout = useUserStore((s) => s.logout);
+
+  const handleLogout = async () => {
+    await logout();
+    useFriendsStore.getState().reset();
+    useConversationsStore.getState().reset();
+    navigate("/login");
+  };
+
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -49,42 +64,42 @@ export default function AdminPage() {
   const metricOptions = [
     {
       key: "totalUsers",
-      title: "Total Users",
+      title: "Tổng số người dùng",
       color: "#2563eb",
       cumulative: true,
-      description: "Cumulative total number of users over time.",
+      description: "Tổng số lượng người dùng tích lũy theo thời gian.",
       valueKey: "users",
     },
     {
       key: "newUsers",
-      title: "New Users",
+      title: "Người dùng mới",
       color: "#0ea5e9",
       cumulative: false,
-      description: "Number of new users for each time period.",
+      description: "Số lượng người dùng mới trong từng khoảng thời gian.",
       valueKey: "newUsersToday",
     },
     {
       key: "conversations",
-      title: "Conversations",
+      title: "Cuộc trò chuyện",
       color: "#14b8a6",
       cumulative: true,
-      description: "Cumulative number of conversations over time.",
+      description: "Tổng số lượng cuộc trò chuyện tích lũy theo thời gian.",
       valueKey: "conversations",
     },
     {
       key: "groups",
-      title: "Groups",
+      title: "Nhóm trò chuyện",
       color: "#22c55e",
       cumulative: true,
-      description: "Cumulative number of groups created over time.",
+      description: "Tổng số lượng nhóm được tạo tích lũy theo thời gian.",
       valueKey: "groups",
     },
     {
       key: "messages",
-      title: "Messages",
+      title: "Tin nhắn",
       color: "#f97316",
       cumulative: false,
-      description: "Số tin nhắn gửi theo từng khoảng thời gian.",
+      description: "Số lượng tin nhắn gửi trong từng khoảng thời gian.",
       valueKey: "messagesToday",
     },
   ];
@@ -119,7 +134,7 @@ export default function AdminPage() {
       setOverviewSeries(data.series);
     } catch (err) {
       console.error("Load overview stats failed:", err);
-      setStatsError("Unable to load chart data.");
+      setStatsError("Không thể tải dữ liệu biểu đồ.");
     } finally {
       setStatsLoading(false);
     }
@@ -174,12 +189,68 @@ export default function AdminPage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <header className="h-16 px-6 pl-16 md:pl-6 border-b flex items-center bg-card">
-        <div>
-          <h1 className="text-xl font-semibold">Admin Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage users, reports, and system statistics.
-          </p>
+      <header className="h-16 px-6 border-b flex items-center justify-between bg-card shrink-0">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-lg font-bold text-primary mr-4">Trang Quản Trị</h1>
+            <nav className="flex gap-1">
+              <NavLink
+                to="/admin"
+                end
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Xu hướng chỉ số</span>
+              </NavLink>
+              <NavLink
+                to="/admin/users"
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <Users className="w-4 h-4" />
+                <span>Người dùng</span>
+              </NavLink>
+              <NavLink
+                to="/admin/reports"
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <FileText className="w-4 h-4" />
+                <span>Báo cáo vi phạm</span>
+              </NavLink>
+            </nav>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-xs text-muted-foreground font-medium">Chế độ Quản trị</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 inline-flex items-center gap-1.5"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Đăng xuất</span>
+          </Button>
         </div>
       </header>
 
@@ -189,30 +260,30 @@ export default function AdminPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-primary" />
-                <CardTitle>Admin Overview</CardTitle>
+                <CardTitle>Tổng quan Hệ thống</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {[
                   {
-                    label: "Total users",
+                    label: "Tổng số người dùng",
                     value: overview.users,
                   },
                   {
-                    label: "New users today",
+                    label: "Người dùng mới hôm nay",
                     value: overview.newUsersToday,
                   },
                   {
-                    label: "Conversations",
+                    label: "Cuộc trò chuyện",
                     value: overview.conversations,
                   },
                   {
-                    label: "Groups",
+                    label: "Nhóm trò chuyện",
                     value: overview.groups,
                   },
                   {
-                    label: "Messages today",
+                    label: "Tin nhắn hôm nay",
                     value: overview.messagesToday,
                   },
                 ].map((item) => (
@@ -233,19 +304,19 @@ export default function AdminPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-primary" />
-                <CardTitle>User management</CardTitle>
+                <CardTitle>Quản lý người dùng</CardTitle>
               </div>
               <CardDescription>
-                Access the user list to lock/unlock accounts.
+                Truy cập danh sách người dùng để khóa hoặc mở khóa tài khoản.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Go to the user management page to view and adjust user status.
+                Xem chi tiết danh sách tài khoản thành viên và điều chỉnh quyền truy cập của họ.
               </p>
 
               <Button asChild className="mt-4">
-                <Link to="/admin/users">Go to Users</Link>
+                <Link to="/admin/users">Quản lý Người dùng</Link>
               </Button>
             </CardContent>
           </Card>
@@ -254,16 +325,16 @@ export default function AdminPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" />
-                <CardTitle>Reports</CardTitle>
+                <CardTitle>Báo cáo vi phạm</CardTitle>
               </div>
-              <CardDescription>View and manage user reports.</CardDescription>
+              <CardDescription>Xem và quản lý các báo cáo vi phạm.</CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Manage abusive reports and update their handling status.
+                Xét duyệt các báo cáo lạm dụng, nội dung xấu từ thành viên và cập nhật trạng thái.
               </p>
               <Button asChild className="mt-4">
-                <Link to="/admin/reports">Go to Reports</Link>
+                <Link to="/admin/reports">Quản lý Báo cáo</Link>
               </Button>
             </CardContent>
           </Card>
@@ -274,7 +345,7 @@ export default function AdminPage() {
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-primary" />
-                <CardTitle>Metric trends</CardTitle>
+                <CardTitle>Xu hướng chỉ số</CardTitle>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {["day", "week", "month"].map((option) => (
@@ -288,21 +359,21 @@ export default function AdminPage() {
                     }}
                   >
                     {option === "day"
-                      ? "Day"
+                      ? "Ngày"
                       : option === "week"
-                        ? "Week"
-                        : "Month"}
+                        ? "Tuần"
+                        : "Tháng"}
                   </Button>
                 ))}
                 <div className="flex items-center gap-2 border rounded-xl p-2 bg-slate-50">
-                  <label className="text-sm text-muted-foreground">From</label>
+                  <label className="text-sm text-muted-foreground">Từ</label>
                   <input
                     type="date"
                     className="rounded-md border px-2 py-1 text-sm"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
                   />
-                  <label className="text-sm text-muted-foreground">To</label>
+                  <label className="text-sm text-muted-foreground">Đến</label>
                   <input
                     type="date"
                     className="rounded-md border px-2 py-1 text-sm"
@@ -310,7 +381,7 @@ export default function AdminPage() {
                     onChange={(e) => setToDate(e.target.value)}
                   />
                   <Button size="sm" onClick={applyCustomRange}>
-                    Submit
+                    Xem kết quả
                   </Button>
                 </div>
               </div>
@@ -328,7 +399,7 @@ export default function AdminPage() {
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">
-                      Select a metric to view its trend
+                      Chọn một chỉ số để xem xu hướng thay đổi
                     </p>
                     <p className="text-2xl font-semibold">
                       {
@@ -383,7 +454,7 @@ export default function AdminPage() {
                     <div className="text-right">
                       <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                         {" "}
-                        period: {period}
+                        chu kỳ: {period === "day" ? "Ngày" : period === "week" ? "Tuần" : "Tháng"}
                       </p>
                     </div>
                   </div>
@@ -430,22 +501,6 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                <CardTitle>Quick analysis</CardTitle>
-              </div>
-              <CardDescription>Monitor key system metrics.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Admin overview helps you immediately monitor the system.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

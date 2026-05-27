@@ -75,31 +75,17 @@ export default function ResetPasswordPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && (
+        {(error || fieldErrors.token) && (
           <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-            {error}
+            {error || fieldErrors.token}
           </div>
         )}
 
-        <div className="space-y-2">
-          <Label htmlFor="token">Reset token</Label>
-          <div className="relative">
-            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="token"
-              name="token"
-              type="text"
-              placeholder="Paste the token from your email"
-              value={formData.token}
-              onChange={handleChange}
-              className="pl-10"
-              required
-            />
-          </div>
-          {fieldErrors.token && (
-            <p className="text-xs text-destructive">{fieldErrors.token}</p>
-          )}
-        </div>
+        <input
+          type="hidden"
+          name="token"
+          value={formData.token}
+        />
 
         <div className="space-y-2">
           <Label htmlFor="password">New password</Label>

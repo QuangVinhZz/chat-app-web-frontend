@@ -31,6 +31,7 @@ async function maybeRequestPermission() {
 }
 
 function showNative(notification) {
+  if (localStorage.getItem('settings:notification') === 'false') return
   if (typeof window === 'undefined' || !('Notification' in window)) return
   if (Notification.permission !== 'granted') return
   // Only fire native notifications when the tab isn't focused — otherwise

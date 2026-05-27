@@ -14,13 +14,15 @@ export function getConversationDisplayName(conversation, meId) {
   if (!conversation) return ''
   if (conversation.type === 'group') return conversation.name || 'Group'
   const other = getOtherMember(conversation, meId)
-  return other?.user?.name || 'Unknown'
+  if (!other) return 'Tài liệu của tôi'
+  return other?.nickname || other?.user?.name || 'Unknown'
 }
 
 export function getConversationAvatarUrl(conversation, meId) {
   if (!conversation) return null
   if (conversation.type === 'group') return conversation.avatarUrl || null
   const other = getOtherMember(conversation, meId)
+  if (!other) return null
   return other?.user?.avatarUrl || null
 }
 

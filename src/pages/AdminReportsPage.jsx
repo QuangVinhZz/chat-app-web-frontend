@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, XCircle, ShieldCheck, BarChart3, FileText, Users, ArrowLeft, LogOut } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,15 +10,29 @@ import {
 import { Button } from "../components/ui/Button";
 import { Spinner } from "../components/ui/Spinner";
 import { adminService } from "../services/adminService";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useUserStore } from "../stores/userStore";
+import { useFriendsStore } from "../stores/friendsStore";
+import { useConversationsStore } from "../stores/conversationsStore";
 
 const STATUS_LABELS = {
-  pending: "Pending",
-  reviewed: "Reviewed",
-  resolved: "Resolved",
-  dismissed: "Dismissed",
+  pending: "Đang chờ",
+  reviewed: "Đã xem",
+  resolved: "Đã giải quyết",
+  dismissed: "Đã hủy",
 };
 
 export default function AdminReportsPage() {
+  const navigate = useNavigate();
+  const logout = useUserStore((s) => s.logout);
+
+  const handleLogout = async () => {
+    await logout();
+    useFriendsStore.getState().reset();
+    useConversationsStore.getState().reset();
+    navigate("/login");
+  };
+
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
@@ -62,12 +76,68 @@ export default function AdminReportsPage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <header className="h-16 px-6 pl-16 md:pl-6 border-b flex items-center bg-card">
-        <div>
-          <h1 className="text-xl font-semibold">Reports</h1>
-          <p className="text-sm text-muted-foreground">
-            View and update user report statuses.
-          </p>
+      <header className="h-16 px-6 border-b flex items-center justify-between bg-card shrink-0">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-lg font-bold text-primary mr-4">Trang Quản Trị</h1>
+            <nav className="flex gap-1">
+              <NavLink
+                to="/admin"
+                end
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Xu hướng chỉ số</span>
+              </NavLink>
+              <NavLink
+                to="/admin/users"
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <Users className="w-4 h-4" />
+                <span>Người dùng</span>
+              </NavLink>
+              <NavLink
+                to="/admin/reports"
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <FileText className="w-4 h-4" />
+                <span>Báo cáo vi phạm</span>
+              </NavLink>
+            </nav>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-xs text-muted-foreground font-medium">Chế độ Quản trị</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 inline-flex items-center gap-1.5"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Đăng xuất</span>
+          </Button>
         </div>
       </header>
 
@@ -85,46 +155,56 @@ export default function AdminReportsPage() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Reports list</CardTitle>
+              <CardTitle>Danh sách báo cáo</CardTitle>
               <CardDescription>
-                Current report requests and their handling status.
+                Các yêu cầu báo cáo hiện tại và trạng thái xử lý tương ứng.
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <table className="min-w-full border-collapse text-left text-sm">
                 <thead>
                   <tr>
-                    <th className="px-4 py-3 text-muted-foreground">
-                      Reported by
-                    </th>
-                    <th className="px-4 py-3 text-muted-foreground">Reason</th>
-                    <th className="px-4 py-3 text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-muted-foreground">Actions</th>
+                    <th className="px-4 py-3 text-muted-foreground">Người báo cáo</th>
+                    <th className="px-4 py-3 text-muted-foreground">Người bị báo cáo</th>
+                    <th className="px-4 py-3 text-muted-foreground">Lý do</th>
+                    <th className="px-4 py-3 text-muted-foreground">Thời gian</th>
+                    <th className="px-4 py-3 text-muted-foreground">Trạng thái</th>
+                    <th className="px-4 py-3 text-muted-foreground">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
                   {reports.map((report) => (
                     <tr key={report.id} className="border-t border-border">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 font-medium">
                         {report.reporter?.name ||
                           report.reporter?.email ||
                           "---"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 font-medium text-destructive">
+                        {report.targetUser?.name ||
+                          report.targetUser?.email ||
+                          "---"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">
                         {report.reason ||
                           report.description ||
-                          "No description"}
+                          "Không có lý do"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {report.createdAt
+                          ? new Date(report.createdAt).toLocaleString("vi-VN")
+                          : "---"}
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${
+                          className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                             report.status === "pending"
-                              ? "bg-secondary/10 text-secondary"
+                              ? "bg-amber-500/10 text-amber-600"
                               : report.status === "reviewed"
-                                ? "bg-primary/10 text-primary"
+                                ? "bg-blue-500/10 text-blue-600"
                                 : report.status === "resolved"
-                                  ? "bg-success/10 text-success"
-                                  : "bg-destructive/10 text-destructive"
+                                  ? "bg-green-500/10 text-green-600"
+                                  : "bg-red-500/10 text-red-600"
                           }`}
                         >
                           {STATUS_LABELS[report.status] || report.status}
@@ -139,7 +219,7 @@ export default function AdminReportsPage() {
                             handleUpdateStatus(report.id, "reviewed")
                           }
                         >
-                          <CheckCircle2 className="w-4 h-4" /> Reviewed
+                          <CheckCircle2 className="w-4 h-4 mr-1" /> Đã xem
                         </Button>
                         <Button
                           size="sm"
@@ -149,7 +229,7 @@ export default function AdminReportsPage() {
                             handleUpdateStatus(report.id, "dismissed")
                           }
                         >
-                          <XCircle className="w-4 h-4" /> Dismiss
+                          <XCircle className="w-4 h-4 mr-1" /> Hủy bỏ
                         </Button>
                       </td>
                     </tr>

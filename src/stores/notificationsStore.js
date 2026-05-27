@@ -42,8 +42,9 @@ export const useNotificationsStore = create((set, get) => ({
       read: false,
       ...partial,
     }
+    const showToast = localStorage.getItem('settings:notification') !== 'false'
     set((state) => ({
-      toasts: [...state.toasts, notification],
+      toasts: showToast ? [...state.toasts, notification] : state.toasts,
       history: [notification, ...state.history].slice(0, MAX_HISTORY),
       unreadCount: state.unreadCount + 1,
     }))

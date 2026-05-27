@@ -59,7 +59,7 @@ export default function DashboardPage() {
 
   const statsCards = [
     {
-      title: 'Total Messages',
+      title: 'Tổng số tin nhắn',
       value: analytics?.totalMessages?.toLocaleString() || '0',
       change: '+12.5%',
       icon: MessageSquare,
@@ -67,7 +67,7 @@ export default function DashboardPage() {
       bgColor: 'bg-chart-1/10',
     },
     {
-      title: 'Active Users',
+      title: 'Người dùng hoạt động',
       value: analytics?.activeUsers?.toLocaleString() || '0',
       change: '+8.2%',
       icon: Users,
@@ -75,7 +75,7 @@ export default function DashboardPage() {
       bgColor: 'bg-chart-2/10',
     },
     {
-      title: 'Chat Groups',
+      title: 'Nhóm trò chuyện',
       value: analytics?.totalGroups?.toLocaleString() || '0',
       change: '+5.1%',
       icon: UsersRound,
@@ -83,7 +83,7 @@ export default function DashboardPage() {
       bgColor: 'bg-chart-3/10',
     },
     {
-      title: 'Avg Messages/Day',
+      title: 'Tin nhắn TB/Ngày',
       value: Math.round(
         (analytics?.messagesPerDay?.reduce((acc, d) => acc + d.count, 0) || 0) /
           (analytics?.messagesPerDay?.length || 1)
@@ -100,8 +100,8 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="h-16 px-6 pl-16 md:pl-6 border-b flex items-center bg-card">
         <div>
-          <h1 className="text-xl font-semibold">Analytics Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Monitor your chat application performance</p>
+          <h1 className="text-xl font-semibold">Thống kê & Phân tích</h1>
+          <p className="text-sm text-muted-foreground">Theo dõi hiệu suất hoạt động của ứng dụng chat</p>
         </div>
       </header>
 
@@ -117,7 +117,7 @@ export default function DashboardPage() {
                     <p className="text-2xl font-bold mt-1">{stat.value}</p>
                     <p className="text-xs text-chart-2 mt-1 flex items-center gap-1">
                       <TrendingUp className="w-3 h-3" />
-                      {stat.change} from last week
+                      {stat.change} so với tuần trước
                     </p>
                   </div>
                   <div className={`w-12 h-12 rounded-xl ${stat.bgColor} flex items-center justify-center`}>
@@ -136,9 +136,9 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-primary" />
-                <CardTitle>Messages Per Day</CardTitle>
+                <CardTitle>Số lượng tin nhắn mỗi ngày</CardTitle>
               </div>
-              <CardDescription>Daily message volume over the past week</CardDescription>
+              <CardDescription>Tổng số tin nhắn hàng ngày trong tuần qua</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-72">
@@ -153,7 +153,7 @@ export default function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis
                       dataKey="date"
-                      tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
+                      tickFormatter={(date) => new Date(date).toLocaleDateString('vi-VN', { weekday: 'short' })}
                       className="text-xs"
                     />
                     <YAxis className="text-xs" />
@@ -164,9 +164,10 @@ export default function DashboardPage() {
                         borderRadius: '8px',
                       }}
                       labelFormatter={(date) =>
-                        new Date(date).toLocaleDateString('en-US', {
+                        new Date(date).toLocaleDateString('vi-VN', {
                           weekday: 'long',
-                          month: 'short',
+                          year: 'numeric',
+                          month: 'long',
                           day: 'numeric',
                         })
                       }
@@ -178,7 +179,7 @@ export default function DashboardPage() {
                       strokeWidth={2}
                       fillOpacity={1}
                       fill="url(#colorMessages)"
-                      name="Messages"
+                      name="Tin nhắn"
                     />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -191,9 +192,9 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-primary" />
-                <CardTitle>Active Users Trend</CardTitle>
+                <CardTitle>Xu hướng người dùng hoạt động</CardTitle>
               </div>
-              <CardDescription>User activity over the past week</CardDescription>
+              <CardDescription>Số lượng người dùng hoạt động trong tuần qua</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-72">
@@ -202,7 +203,7 @@ export default function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis
                       dataKey="date"
-                      tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { weekday: 'short' })}
+                      tickFormatter={(date) => new Date(date).toLocaleDateString('vi-VN', { weekday: 'short' })}
                       className="text-xs"
                     />
                     <YAxis className="text-xs" />
@@ -213,9 +214,10 @@ export default function DashboardPage() {
                         borderRadius: '8px',
                       }}
                       labelFormatter={(date) =>
-                        new Date(date).toLocaleDateString('en-US', {
+                        new Date(date).toLocaleDateString('vi-VN', {
                           weekday: 'long',
-                          month: 'short',
+                          year: 'numeric',
+                          month: 'long',
                           day: 'numeric',
                         })
                       }
@@ -226,7 +228,7 @@ export default function DashboardPage() {
                       stroke="#22c55e"
                       strokeWidth={2}
                       dot={{ fill: '#22c55e', strokeWidth: 2 }}
-                      name="Active Users"
+                      name="Người dùng hoạt động"
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -242,16 +244,25 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <PieChart className="w-5 h-5 text-primary" />
-                <CardTitle>Messages by Type</CardTitle>
+                <CardTitle>Tin nhắn theo định dạng</CardTitle>
               </div>
-              <CardDescription>Distribution of message types</CardDescription>
+              <CardDescription>Tỷ lệ phân phối các định dạng tin nhắn</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <RechartsPieChart>
                     <Pie
-                      data={analytics?.messagesByType || []}
+                      data={analytics?.messagesByType?.map(item => ({
+                        ...item,
+                        type: {
+                          text: 'Văn bản',
+                          image: 'Hình ảnh',
+                          file: 'Tệp tin',
+                          video: 'Video',
+                          audio: 'Thoại'
+                        }[item.type?.toLowerCase()] || item.type
+                      })) || []}
                       cx="50%"
                       cy="50%"
                       innerRadius={50}
@@ -283,9 +294,9 @@ export default function DashboardPage() {
             <CardHeader>
               <div className="flex items-center gap-2">
                 <UsersRound className="w-5 h-5 text-primary" />
-                <CardTitle>Top Active Groups</CardTitle>
+                <CardTitle>Nhóm hoạt động tích cực nhất</CardTitle>
               </div>
-              <CardDescription>Groups with most message activity</CardDescription>
+              <CardDescription>Các nhóm có lượng tin nhắn trao đổi nhiều nhất</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-64">
@@ -301,7 +312,7 @@ export default function DashboardPage() {
                         borderRadius: '8px',
                       }}
                     />
-                    <Bar dataKey="messages" fill="#6366f1" radius={[0, 4, 4, 0]} name="Messages" />
+                    <Bar dataKey="messages" fill="#6366f1" radius={[0, 4, 4, 0]} name="Tin nhắn" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -314,9 +325,9 @@ export default function DashboardPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-primary" />
-              <CardTitle>User Activity by Hour</CardTitle>
+              <CardTitle>Hoạt động người dùng theo giờ</CardTitle>
             </div>
-            <CardDescription>Peak activity times throughout the day</CardDescription>
+            <CardDescription>Khung thời gian hoạt động cao điểm trong ngày</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -332,7 +343,7 @@ export default function DashboardPage() {
                       borderRadius: '8px',
                     }}
                   />
-                  <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Active Users" />
+                  <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Người dùng hoạt động" />
                 </BarChart>
               </ResponsiveContainer>
             </div>

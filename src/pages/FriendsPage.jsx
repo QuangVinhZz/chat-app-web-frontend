@@ -16,6 +16,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { vi } from 'date-fns/locale'
 import { cn } from '../utils/cn'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -38,11 +39,11 @@ import { useConversationsStore } from '../stores/conversationsStore'
 import { ApiError } from '../services/apiClient'
 
 const TABS = [
-  { key: 'friends', label: 'My Friends', icon: Users },
-  { key: 'received', label: 'Received', icon: Inbox },
-  { key: 'sent', label: 'Sent', icon: Clock },
-  { key: 'find', label: 'Find People', icon: UserPlus },
-  { key: 'blocked', label: 'Blocked', icon: Ban },
+  { key: 'friends', label: 'Bạn bè của tôi', icon: Users },
+  { key: 'received', label: 'Lời mời đã nhận', icon: Inbox },
+  { key: 'sent', label: 'Yêu cầu đã gửi', icon: Clock },
+  { key: 'find', label: 'Tìm kiếm mọi người', icon: UserPlus },
+  { key: 'blocked', label: 'Đã chặn', icon: Ban },
 ]
 
 const getInitials = (name) =>
@@ -127,7 +128,7 @@ export default function FriendsPage() {
         else if (activeTab === 'blocked') await loadBlocked()
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof ApiError ? err.message : 'Failed to load data.')
+        setError(err instanceof ApiError ? err.message : 'Không thể tải dữ liệu.')
       } finally {
         if (!cancelled) setTabLoading(false)
       }
@@ -202,7 +203,7 @@ export default function FriendsPage() {
     try {
       await fn()
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Action failed.'
+      const msg = err instanceof ApiError ? err.message : 'Thao tác thất bại.'
       setError(msg)
     } finally {
       setPending((p) => {
@@ -259,7 +260,7 @@ export default function FriendsPage() {
     })
 
   const handleUnfriend = (userId) => {
-    if (!confirm('Remove this friend?')) return
+    if (!confirm('Hủy kết bạn với người này?')) return
     return withPending(`unfriend:${userId}`, async () => {
       await friendService.unfriend(userId)
       setFriends((prev) => {
@@ -273,7 +274,7 @@ export default function FriendsPage() {
   const handleBlock = (userId) => {
     if (
       !confirm(
-        'Block this user? You will no longer see each other in search, friends, or requests.'
+        'Chặn người dùng này? Hai bên sẽ không còn nhìn thấy nhau trong danh sách tìm kiếm, bạn bè, hoặc yêu cầu kết bạn.'
       )
     )
       return
@@ -338,7 +339,7 @@ export default function FriendsPage() {
     e?.preventDefault?.()
     const q = searchQuery.trim()
     if (q.length < 2) {
-      setError('Enter at least 2 characters to search.')
+      setError('Nhập ít nhất 2 ký tự để tìm kiếm.')
       return
     }
     setError('')
@@ -360,7 +361,7 @@ export default function FriendsPage() {
         }))
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Search failed.')
+      setError(err instanceof ApiError ? err.message : 'Tìm kiếm thất bại.')
       setSearchResults([])
     } finally {
       setSearching(false)
@@ -384,9 +385,9 @@ export default function FriendsPage() {
       {/* Header */}
       <header className="h-16 px-6 pl-16 md:pl-6 border-b flex items-center justify-between bg-card">
         <div>
-          <h1 className="text-xl font-semibold">Friends</h1>
+          <h1 className="text-xl font-semibold">Bạn bè</h1>
           <p className="text-sm text-muted-foreground">
-            {friends.length} friends · {received.length} pending
+            {friends.length} bạn bè · {received.length} đang chờ phản hồi
           </p>
         </div>
       </header>
@@ -572,8 +573,8 @@ function FriendsList({ friends, pending, onUnfriend, onBlock, onOpenChat }) {
     return (
       <EmptyState
         icon={Users}
-        title="No friends yet"
-        description="Search for people in the Find People tab to send a request."
+        title="Chưa có bạn bè"
+        description="Hãy tìm kiếm mọi người trong mục 'Tìm kiếm mọi người' để kết bạn nhé."
       />
     )
   }
@@ -587,24 +588,24 @@ function FriendsList({ friends, pending, onUnfriend, onBlock, onOpenChat }) {
           isOnline={Boolean(f.isOnline)}
           meta={
             f.isOnline
-              ? 'Online'
+              ? 'Trực tuyến'
               : f.lastSeenAt
-                ? `Last seen ${formatDistanceToNow(new Date(f.lastSeenAt), { addSuffix: true })}`
-                : 'Offline'
+                ? `Hoạt động ${formatDistanceToNow(new Date(f.lastSeenAt), { addSuffix: true, locale: vi })}`
+                : 'Ngoại tuyến'
           }
         >
           <Button
             size="sm"
             disabled={pending[`chat:${f.id}`]}
             onClick={() => onOpenChat(f.id)}
-            title="Chat"
+            title="Nhắn tin"
           >
             {pending[`chat:${f.id}`] ? (
               <Spinner size="sm" className="text-primary-foreground" />
             ) : (
               <>
                 <MessageCircle className="w-4 h-4 mr-1" />
-                Chat
+                Nhắn tin
               </>
             )}
           </Button>
@@ -614,8 +615,8 @@ function FriendsList({ friends, pending, onUnfriend, onBlock, onOpenChat }) {
             className="text-muted-foreground hover:text-foreground"
             disabled={pending[`block:${f.id}`]}
             onClick={() => onBlock(f.id)}
-            aria-label="Block"
-            title="Block"
+            aria-label="Chặn"
+            title="Chặn"
           >
             {pending[`block:${f.id}`] ? (
               <Spinner size="sm" />
@@ -629,8 +630,8 @@ function FriendsList({ friends, pending, onUnfriend, onBlock, onOpenChat }) {
             className="text-destructive hover:text-destructive hover:bg-destructive/10"
             disabled={pending[`unfriend:${f.id}`]}
             onClick={() => onUnfriend(f.id)}
-            aria-label="Unfriend"
-            title="Unfriend"
+            aria-label="Hủy kết bạn"
+            title="Hủy kết bạn"
           >
             {pending[`unfriend:${f.id}`] ? (
               <Spinner size="sm" />
@@ -649,8 +650,8 @@ function BlockedList({ blocked, pending, onUnblock }) {
     return (
       <EmptyState
         icon={Ban}
-        title="No blocked users"
-        description="Users you block will appear here. They won't see you in search or be able to send requests."
+        title="Chưa chặn người dùng nào"
+        description="Những người dùng bạn chặn sẽ xuất hiện ở đây. Họ sẽ không tìm thấy bạn hoặc gửi yêu cầu kết bạn cho bạn được nữa."
       />
     )
   }
@@ -661,7 +662,7 @@ function BlockedList({ blocked, pending, onUnblock }) {
           key={b.blockId}
           avatarUrl={b.avatarUrl}
           name={b.name}
-          meta={`Blocked ${formatDistanceToNow(new Date(b.blockedAt), { addSuffix: true })}`}
+          meta={`Đã chặn ${formatDistanceToNow(new Date(b.blockedAt), { addSuffix: true, locale: vi })}`}
         >
           <Button
             size="sm"
@@ -674,7 +675,7 @@ function BlockedList({ blocked, pending, onUnblock }) {
             ) : (
               <>
                 <ShieldOff className="w-4 h-4 mr-1" />
-                Unblock
+                Bỏ chặn
               </>
             )}
           </Button>
@@ -689,8 +690,8 @@ function ReceivedList({ requests, pending, onAccept, onReject }) {
     return (
       <EmptyState
         icon={Inbox}
-        title="No incoming requests"
-        description="When someone sends you a friend request, it'll show up here."
+        title="Không có lời mời kết bạn nào"
+        description="Khi có ai đó gửi lời mời kết bạn cho bạn, nó sẽ hiển thị ở đây."
       />
     )
   }
@@ -701,7 +702,7 @@ function ReceivedList({ requests, pending, onAccept, onReject }) {
           key={r.friendshipId}
           avatarUrl={r.from?.avatarUrl}
           name={r.from?.name}
-          meta={`Sent ${formatDistanceToNow(new Date(r.createdAt), { addSuffix: true })}`}
+          meta={`Gửi ${formatDistanceToNow(new Date(r.createdAt), { addSuffix: true, locale: vi })}`}
         >
           <Button
             size="sm"
@@ -713,7 +714,7 @@ function ReceivedList({ requests, pending, onAccept, onReject }) {
             ) : (
               <>
                 <UserCheck className="w-4 h-4 mr-1" />
-                Accept
+                Đồng ý
               </>
             )}
           </Button>
@@ -728,7 +729,7 @@ function ReceivedList({ requests, pending, onAccept, onReject }) {
             ) : (
               <>
                 <UserX className="w-4 h-4 mr-1" />
-                Reject
+                Từ chối
               </>
             )}
           </Button>
@@ -743,8 +744,8 @@ function SentList({ requests, pending, onCancel }) {
     return (
       <EmptyState
         icon={Clock}
-        title="No pending requests"
-        description="Requests you send that haven't been answered yet will show up here."
+        title="Không có yêu cầu đang chờ"
+        description="Các yêu cầu kết bạn bạn đã gửi nhưng chưa được phản hồi sẽ xuất hiện ở đây."
       />
     )
   }
@@ -755,7 +756,7 @@ function SentList({ requests, pending, onCancel }) {
           key={r.friendshipId}
           avatarUrl={r.to?.avatarUrl}
           name={r.to?.name}
-          meta={`Sent ${formatDistanceToNow(new Date(r.createdAt), { addSuffix: true })}`}
+          meta={`Gửi ${formatDistanceToNow(new Date(r.createdAt), { addSuffix: true, locale: vi })}`}
         >
           <Button
             size="sm"
@@ -768,7 +769,7 @@ function SentList({ requests, pending, onCancel }) {
             ) : (
               <>
                 <X className="w-4 h-4 mr-1" />
-                Cancel
+                Hủy
               </>
             )}
           </Button>
@@ -797,7 +798,7 @@ function FindPeople({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name, email, or phone..."
+            placeholder="Tìm kiếm theo tên, email, hoặc số điện thoại..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -807,12 +808,12 @@ function FindPeople({
           {searching ? (
             <>
               <Spinner size="sm" className="text-primary-foreground mr-1" />
-              Searching...
+              Đang tìm kiếm...
             </>
           ) : (
             <>
               <Search className="w-4 h-4 mr-1" />
-              Search
+              Tìm kiếm
             </>
           )}
         </Button>
@@ -821,16 +822,16 @@ function FindPeople({
       {!hasSearched && (
         <EmptyState
           icon={UserPlus}
-          title="Find people to connect with"
-          description="Type a name, email, or phone number and press Search."
+          title="Tìm kiếm bạn bè kết nối"
+          description="Nhập tên, email hoặc số điện thoại của họ rồi nhấn Tìm kiếm."
         />
       )}
 
       {hasSearched && !searching && results.length === 0 && (
         <EmptyState
           icon={Search}
-          title="No results"
-          description="Try a different name, email, or phone number."
+          title="Không tìm thấy kết quả"
+          description="Thử tìm kiếm lại với tên, email hoặc số điện thoại khác."
         />
       )}
 
@@ -842,11 +843,11 @@ function FindPeople({
               const key = `send:${u.id}`
               const isPending = Boolean(pending[key])
               const label = u.__friend
-                ? 'Friends'
+                ? 'Bạn bè'
                 : u.__requested
-                  ? 'Requested'
+                  ? 'Đã gửi yêu cầu'
                   : u.__incoming
-                    ? 'Pending you'
+                    ? 'Chờ bạn phản hồi'
                     : null
               return (
                 <UserRow
@@ -871,7 +872,7 @@ function FindPeople({
                       ) : (
                         <>
                           <Send className="w-4 h-4 mr-1" />
-                          Add
+                          Thêm
                         </>
                       )}
                     </Button>
@@ -911,11 +912,11 @@ function UserDetailDialog({ user, onClose, pending, onSendRequest, onBlock }) {
   const label = !user
     ? null
     : user.__friend
-      ? 'Already friends'
+      ? 'Đã là bạn bè'
       : user.__requested
-        ? 'Request sent'
+        ? 'Đã gửi yêu cầu'
         : user.__incoming
-          ? 'Pending your response'
+          ? 'Chờ bạn phản hồi'
           : null
 
   return (
@@ -924,7 +925,7 @@ function UserDetailDialog({ user, onClose, pending, onSendRequest, onBlock }) {
         {user && (
           <>
             <DialogHeader>
-              <DialogTitle>User profile</DialogTitle>
+              <DialogTitle>Thông tin người dùng</DialogTitle>
             </DialogHeader>
 
             <div className="flex flex-col items-center gap-3 py-2">
@@ -949,7 +950,7 @@ function UserDetailDialog({ user, onClose, pending, onSendRequest, onBlock }) {
               <div className="text-center">
                 <h3 className="text-lg font-semibold">{user.name || 'Unknown'}</h3>
                 <p className="text-xs text-muted-foreground">
-                  {user.isOnline ? 'Online' : 'Offline'}
+                  {user.isOnline ? 'Trực tuyến' : 'Ngoại tuyến'}
                 </p>
               </div>
 
@@ -959,7 +960,7 @@ function UserDetailDialog({ user, onClose, pending, onSendRequest, onBlock }) {
                 </p>
               ) : (
                 <p className="text-sm text-center text-muted-foreground/60 italic">
-                  No bio yet
+                  Chưa có giới thiệu
                 </p>
               )}
 
@@ -982,7 +983,7 @@ function UserDetailDialog({ user, onClose, pending, onSendRequest, onBlock }) {
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
-                      Send request
+                      Gửi yêu cầu
                     </>
                   )}
                 </Button>
@@ -998,7 +999,7 @@ function UserDetailDialog({ user, onClose, pending, onSendRequest, onBlock }) {
                 ) : (
                   <>
                     <Ban className="w-4 h-4 mr-2" />
-                    Block
+                    Chặn
                   </>
                 )}
               </Button>

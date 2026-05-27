@@ -179,6 +179,13 @@ async function request(method, path, options = {}) {
         tokenStorage.clear()
       }
 
+      if (err.status === 403 && (err.message.includes('bị khóa') || err.message.includes('support.com'))) {
+        alert(err.message || 'tài khoản của bạn đã bị khóa, hãy liên hệ với hỗ trợ viên để được mở khóa. tài khoản hỗ trợ viên: chatappN7@support.com')
+        tokenStorage.clear()
+        window.location.replace('/login')
+        return new Promise(() => {})
+      }
+
       // Authenticated user whose email is not yet verified — redirect to
       // the verification page so they can complete the flow.
       if (err.status === 403 && /email not verified/i.test(err.message)) {

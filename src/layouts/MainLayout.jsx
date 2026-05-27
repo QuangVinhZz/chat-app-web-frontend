@@ -24,11 +24,13 @@ export default function MainLayout() {
     setSidebarOpen(false)
   }, [location.pathname])
 
+  const isAdminPage = location.pathname.startsWith('/admin')
+
   return (
     <CallProvider>
       <div className="h-screen flex overflow-hidden bg-background">
         {/* Mobile backdrop */}
-        {sidebarOpen && (
+        {!isAdminPage && sidebarOpen && (
           <div
             className="md:hidden fixed inset-0 bg-black/50 z-30"
             onClick={() => setSidebarOpen(false)}
@@ -37,26 +39,28 @@ export default function MainLayout() {
         )}
 
         {/* Sidebar drawer */}
-        <div
-          className={cn(
-            'fixed inset-y-0 left-0 z-40 w-88 transform transition-transform duration-200',
-            'md:static md:translate-x-0 md:transform-none',
-            sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          )}
-        >
-          <div className="relative h-full">
-            <Sidebar />
-            {/* Close button inside the drawer — mobile only */}
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(false)}
-              className="md:hidden absolute top-3 right-3 w-8 h-8 rounded-full bg-sidebar-accent text-sidebar-foreground/80 hover:text-sidebar-foreground flex items-center justify-center"
-              aria-label="Close menu"
-            >
-              <X className="w-4 h-4" />
-            </button>
+        {!isAdminPage && (
+          <div
+            className={cn(
+              'fixed inset-y-0 left-0 z-40 w-88 transform transition-transform duration-200',
+              'md:static md:translate-x-0 md:transform-none',
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+            )}
+          >
+            <div className="relative h-full">
+              <Sidebar />
+              {/* Close button inside the drawer — mobile only */}
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(false)}
+                className="md:hidden absolute top-3 right-3 w-8 h-8 rounded-full bg-sidebar-accent text-sidebar-foreground/80 hover:text-sidebar-foreground flex items-center justify-center"
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Main content */}
         <main className="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -64,7 +68,7 @@ export default function MainLayout() {
         </main>
 
         {/* Floating hamburger — only visible on mobile when drawer is closed */}
-        {!sidebarOpen && (
+        {!isAdminPage && !sidebarOpen && (
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}

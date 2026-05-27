@@ -11,6 +11,8 @@ import {
   Plus,
   Sparkles,
   ShieldCheck,
+  Cloud,
+  Pin,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { Avatar, AvatarImage, AvatarFallback } from './ui/Avatar'
@@ -31,7 +33,7 @@ import { formatDistanceToNow } from 'date-fns'
 const navItems = [
   { icon: MessageCircle, label: 'Trò chuyện', path: '/chat', badgeKey: 'chat' },
   { icon: UserPlus, label: 'Bạn bè', path: '/friends', badgeKey: 'friends' },
-  { icon: BarChart3, label: 'Thống kê', path: '/dashboard' },
+  { icon: Cloud, label: 'Tài liệu', path: '/cloud' },
   { icon: Sparkles, label: 'AI Trợ lý', path: '/ai' },
 ]
 
@@ -128,7 +130,7 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="p-2 border-b border-sidebar-border">
         <div className="flex gap-1">
-          {navItems.map((item) => {
+          {!location.pathname.startsWith('/admin') && navItems.map((item) => {
             const badge =
               item.badgeKey === 'friends'
                 ? receivedCount
@@ -175,7 +177,7 @@ export default function Sidebar() {
               <div className="relative">
                 <ShieldCheck className="w-5 h-5" />
               </div>
-              <span>Admin</span>
+              <span>Quản trị</span>
             </NavLink>
           )}
         </div>
@@ -322,6 +324,7 @@ function ConversationItem({ conversation, meId, getInitials }) {
   const avatarUrl = getConversationAvatarUrl(conversation, meId)
   const online = isGroup ? undefined : getConversationIsOnline(conversation, meId)
   const other = isGroup ? null : getOtherMember(conversation, meId)
+  const isSelf = !isGroup && !other
   const isAiBot = other?.user?.email === 'ai-bot@system.local'
   const memberCount = conversation.members?.length ?? 0
   const unread = conversation.unreadCount || 0
@@ -354,6 +357,10 @@ function ConversationItem({ conversation, meId, getInitials }) {
               <Hash className="w-5 h-5 text-primary" />
             </div>
           )
+        ) : isSelf ? (
+          <div className="w-9 h-9 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 border border-blue-500/20">
+            <Cloud className="w-5 h-5" />
+          </div>
         ) : (
           <>
             <Avatar className="h-9 w-9">
@@ -383,16 +390,21 @@ function ConversationItem({ conversation, meId, getInitials }) {
           >
             {name}
           </p>
-          {conversation.lastMessageAt && (
-            <span
-              className={cn(
-                'text-[10px] shrink-0',
-                hasUnread ? 'text-primary font-semibold' : 'text-sidebar-foreground/50'
-              )}
-            >
-              {formatDistanceToNow(new Date(conversation.lastMessageAt), { addSuffix: false })}
-            </span>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {Boolean(conversation.isPinned) && (
+              <Pin className="w-3 h-3 text-yellow-500 fill-current transform rotate-[45deg]" />
+            )}
+            {conversation.lastMessageAt && (
+              <span
+                className={cn(
+                  'text-[10px]',
+                  hasUnread ? 'text-primary font-semibold' : 'text-sidebar-foreground/50'
+                )}
+              >
+                {formatDistanceToNow(new Date(conversation.lastMessageAt), { addSuffix: false })}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center justify-between gap-2">
           <p

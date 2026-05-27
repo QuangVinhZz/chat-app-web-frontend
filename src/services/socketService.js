@@ -79,6 +79,16 @@ class SocketService {
         window.location.replace('/login')
       }
     })
+
+    // Account locked by admin
+    this.socket.on('auth:account_locked', (data) => {
+      console.warn('[socket] Account locked — logging out.', data)
+      if (typeof window !== 'undefined') {
+        alert(data?.message || 'tài khoản của bạn đã bị khóa, hãy liên hệ với hỗ trợ viên để được mở khóa. tài khoản hỗ trợ viên: chatappN7@support.com')
+        tokenStorage.clear()
+        window.location.replace('/login')
+      }
+    })
     
     // Debug: Listen to ALL incoming events from the server
     this.socket.onAny((eventName, ...args) => {

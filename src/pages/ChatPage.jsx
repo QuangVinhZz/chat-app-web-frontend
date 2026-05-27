@@ -108,6 +108,30 @@ export default function ChatPage() {
   // Media lightbox (click on image / video in a bubble to view large)
   const [lightboxAttachment, setLightboxAttachment] = useState(null)
 
+  // Chat Background State & Effect
+  const [chatBackground, setChatBackground] = useState('')
+
+  useEffect(() => {
+    if (conversation) {
+      setChatBackground(conversation.chatBackground || '')
+    } else {
+      setChatBackground('')
+    }
+  }, [conversation?.chatBackground, conversation?.id])
+
+  const backgroundStyle = useMemo(() => {
+    if (!chatBackground) return {}
+    if (chatBackground.startsWith('linear-gradient') || chatBackground.startsWith('rgba') || chatBackground.startsWith('#')) {
+      return { background: chatBackground }
+    }
+    return {
+      backgroundImage: `url(${chatBackground})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat'
+    }
+  }, [chatBackground])
+
   // Infinite scroll
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [hasMore, setHasMore] = useState(false)
@@ -362,6 +386,32 @@ export default function ChatPage() {
           return next
         })
       }),
+      socketService.on('conversation:members-changed', async (payload) => {
+        if (!payload || payload.conversationId !== convId) return
+        try {
+          const fresh = await conversationService.get(convId)
+          if (fresh) {
+            setConversation(fresh)
+          }
+        } catch (err) {
+          console.error('Failed to refetch conversation on members-changed in ChatPage', err)
+        }
+      }),
+      socketService.on('presence:changed', ({ userId, isOnline, lastSeenAt }) => {
+        setConversation((prev) => {
+          if (!prev || prev.type !== 'direct') return prev
+          const members = prev.members?.map((m) => {
+            if (m.user?.id === userId) {
+              return {
+                ...m,
+                user: { ...m.user, isOnline, lastSeenAt },
+              }
+            }
+            return m
+          })
+          return { ...prev, members }
+        })
+      }),
     ]
     return () => {
       offs.forEach((off) => off?.())
@@ -573,7 +623,9 @@ export default function ChatPage() {
       if (hasText) setNewMessage(content)
     } finally {
       setSending(false)
-      inputRef.current?.focus()
+      setTimeout(() => {
+        inputRef.current?.focus()
+      }, 0)
     }
   }
 
@@ -799,6 +851,42 @@ export default function ChatPage() {
 
   // Lookup sender info & reply parent within the current message list.
   const messageById = new Map(messages.map((m) => [m.id, m]))
+
+  const enrichedMessages = useMemo(() => {
+    return messages.map((m) => {
+      const member = conversation?.members?.find((member) => member.user?.id === m.senderId)
+      let enriched = m;
+      if (member?.nickname) {
+        enriched = {
+          ...enriched,
+          sender: {
+            ...enriched.sender,
+            name: member.nickname
+          }
+        }
+      }
+      
+      if (m.content?.startsWith('__system__:nickname-changed:')) {
+        const parts = m.content.split(':')
+        const targetUuid = parts[2]
+        const newNickname = parts.slice(3).join(':')
+        
+        const actorName = member?.nickname || m.sender?.name || 'Thành viên'
+        const targetMember = conversation?.members?.find((member) => member.user?.uuid === targetUuid || member.user?.id === targetUuid)
+        const targetName = targetMember?.user?.name || 'thành viên'
+        
+        const text = newNickname
+          ? `${actorName} đã đặt biệt danh cho ${targetName} là ${newNickname}`
+          : `${actorName} đã gỡ biệt danh của ${targetName}`
+          
+        enriched = {
+          ...enriched,
+          content: `__system__:custom:${text}`
+        }
+      }
+      return enriched
+    })
+  }, [messages, conversation?.members])
 
   // For each OTHER member, pre-compute which is the latest OWN message
   // they've read. That's where we'll render their avatar ("seen" dot).
@@ -1069,7 +1157,7 @@ export default function ChatPage() {
             variant="ghost"
             size="icon"
             className="text-muted-foreground"
-            disabled={conversation?.type === 'direct' && !isOnlineDirect}
+            disabled={conversation?.type === 'direct' && (isAiBot || isBlocked)}
             onClick={() => {
                if (conversation?.type === 'group') {
                  startGroupCall(conversationId, 'audio', displayName);
@@ -1088,7 +1176,7 @@ export default function ChatPage() {
             variant="ghost"
             size="icon"
             className="text-muted-foreground"
-            disabled={conversation?.type === 'direct' && !isOnlineDirect}
+            disabled={conversation?.type === 'direct' && (isAiBot || isBlocked)}
             onClick={() => {
                if (conversation?.type === 'group') {
                  startGroupCall(conversationId, 'video', displayName);
@@ -1103,6 +1191,28 @@ export default function ChatPage() {
           >
             <VideoIcon className="w-5 h-5" />
           </Button>
+          {/* Nút ghim cuộc trò chuyện */}
+          {conversation && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "text-muted-foreground",
+                conversation.isPinned && "text-yellow-500 hover:text-yellow-600"
+              )}
+              onClick={async () => {
+                try {
+                  const res = await useConversationsStore.getState().togglePin(conversation.id)
+                  setConversation((prev) => (prev ? { ...prev, isPinned: res.isPinned } : null))
+                } catch (e) {
+                  console.error(e)
+                }
+              }}
+              title={conversation.isPinned ? "Bỏ ghim cuộc trò chuyện" : "Ghim cuộc trò chuyện"}
+            >
+              <Pin className={cn("w-5 h-5", conversation.isPinned && "fill-current transform rotate-[45deg]")} />
+            </Button>
+          )}
           {/* Nút ⋮ mở ConversationInfoPanel */}
           {conversation && (
             <Button
@@ -1143,6 +1253,7 @@ export default function ChatPage() {
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto relative p-4 space-y-3"
+        style={backgroundStyle}
       >
         {isDraft && messages.length === 0 && (
           <div className="text-center py-8 text-sm text-muted-foreground">
@@ -1159,11 +1270,11 @@ export default function ChatPage() {
             <Spinner size="sm" />
           </div>
         )}
-        {messages.map((message, index) => (
+        {enrichedMessages.map((message, index) => (
           <MessageRow
             key={message.id}
             message={message}
-            previous={messages[index - 1]}
+            previous={enrichedMessages[index - 1]}
             currentUserId={currentUser?.id}
             replyTarget={
               message.replyToMessageId
@@ -1361,7 +1472,6 @@ export default function ChatPage() {
               onBlur={emitTypingStop}
               placeholder="Nhập tin nhắn..."
               className="pr-10"
-              disabled={sending}
             />
             <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
               <PopoverTrigger asChild>
@@ -1483,6 +1593,36 @@ export default function ChatPage() {
       meRole={myRole}
       onConversationRemoved={handleConversationRemoved}
       onConversationUpdated={handleConversationUpdated}
+      currentBackground={chatBackground}
+      onBackgroundChange={async (bg) => {
+        try {
+          let finalVal = bg
+          if (bg && bg.startsWith('data:image/')) {
+            const arr = bg.split(',')
+            const mime = arr[0].match(/:(.*?);/)[1]
+            const bstr = atob(arr[1])
+            let n = bstr.length
+            const u8arr = new Uint8Array(n)
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n)
+            }
+            const file = new File([u8arr], `bg_${conversation.id}.png`, { type: mime })
+            const att = await messageService.uploadAttachment(file)
+            if (att?.url) {
+              finalVal = att.url
+            }
+          }
+
+          setChatBackground(finalVal)
+          await conversationService.updateBackground(conversation.id, finalVal)
+
+          setConversation((prev) => prev ? { ...prev, chatBackground: finalVal } : prev)
+          upsertConversation({ ...conversation, chatBackground: finalVal })
+        } catch (err) {
+          console.error('Failed to change background on backend', err)
+          alert('Không thể lưu hình nền cuộc trò chuyện lên máy chủ.')
+        }
+      }}
     />
 
     {/* Multi-select toolbar */}

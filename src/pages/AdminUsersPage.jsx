@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Lock, Unlock, Search } from "lucide-react";
+import { Lock, Unlock, Search, ShieldCheck, BarChart3, FileText, Users, ArrowLeft, LogOut } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,8 +11,22 @@ import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Spinner } from "../components/ui/Spinner";
 import { adminService } from "../services/adminService";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useUserStore } from "../stores/userStore";
+import { useFriendsStore } from "../stores/friendsStore";
+import { useConversationsStore } from "../stores/conversationsStore";
 
 export default function AdminUsersPage() {
+  const navigate = useNavigate();
+  const logout = useUserStore((s) => s.logout);
+
+  const handleLogout = async () => {
+    await logout();
+    useFriendsStore.getState().reset();
+    useConversationsStore.getState().reset();
+    navigate("/login");
+  };
+
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -65,12 +79,68 @@ export default function AdminUsersPage() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <header className="h-16 px-6 pl-16 md:pl-6 border-b flex items-center bg-card">
-        <div>
-          <h1 className="text-xl font-semibold">User management</h1>
-          <p className="text-sm text-muted-foreground">
-            Search, view statuses, and lock/unlock user accounts.
-          </p>
+      <header className="h-16 px-6 border-b flex items-center justify-between bg-card shrink-0">
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-lg font-bold text-primary mr-4">Trang Quản Trị</h1>
+            <nav className="flex gap-1">
+              <NavLink
+                to="/admin"
+                end
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Xu hướng chỉ số</span>
+              </NavLink>
+              <NavLink
+                to="/admin/users"
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <Users className="w-4 h-4" />
+                <span>Người dùng</span>
+              </NavLink>
+              <NavLink
+                to="/admin/reports"
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`
+                }
+              >
+                <FileText className="w-4 h-4" />
+                <span>Báo cáo vi phạm</span>
+              </NavLink>
+            </nav>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-xs text-muted-foreground font-medium">Chế độ Quản trị</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 inline-flex items-center gap-1.5"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Đăng xuất</span>
+          </Button>
         </div>
       </header>
 
@@ -91,7 +161,7 @@ export default function AdminUsersPage() {
                   }, 300);
                 }}
                 className="pl-9"
-                placeholder="Search users by name or email..."
+                placeholder="Tìm kiếm người dùng theo tên hoặc email..."
               />
             </div>
           </div>
@@ -110,21 +180,21 @@ export default function AdminUsersPage() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Users</CardTitle>
+              <CardTitle>Người dùng</CardTitle>
               <CardDescription>
-                You can lock or unlock user accounts here.
+                Bạn có thể khóa hoặc mở khóa tài khoản người dùng tại đây.
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <table className="min-w-full border-collapse text-left text-sm">
                 <thead>
                   <tr>
-                    <th className="px-4 py-3 text-muted-foreground">Name</th>
-                    <th className="px-4 py-3 text-muted-foreground">UUID/ID</th>
+                    <th className="px-4 py-3 text-muted-foreground">Họ và tên</th>
+                    <th className="px-4 py-3 text-muted-foreground">Mã người dùng (UUID)</th>
                     <th className="px-4 py-3 text-muted-foreground">Email</th>
-                    <th className="px-4 py-3 text-muted-foreground">Status</th>
-                    <th className="px-4 py-3 text-muted-foreground">Created</th>
-                    <th className="px-4 py-3 text-muted-foreground">Actions</th>
+                    <th className="px-4 py-3 text-muted-foreground">Trạng thái</th>
+                    <th className="px-4 py-3 text-muted-foreground">Ngày tạo</th>
+                    <th className="px-4 py-3 text-muted-foreground">Hành động</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -145,7 +215,7 @@ export default function AdminUsersPage() {
                               : "bg-success/10 text-success"
                           }`}
                         >
-                          {user.accountStatus}
+                          {user.accountStatus === "locked" ? "Đã khóa" : "Đang hoạt động"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
@@ -175,7 +245,7 @@ export default function AdminUsersPage() {
                           ) : (
                             <Lock className="w-4 h-4" />
                           )}
-                          {user.accountStatus === "locked" ? "Unlock" : "Lock"}
+                          {user.accountStatus === "locked" ? "Mở khóa" : "Khóa"}
                         </Button>
                       </td>
                     </tr>

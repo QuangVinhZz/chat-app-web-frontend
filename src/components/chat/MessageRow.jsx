@@ -31,6 +31,35 @@ export default function MessageRow({
   isSelected,
   isMultiSelectMode,
 }) {
+  const isSystem = message.content?.startsWith('__system__:')
+  if (isSystem) {
+    const parts = message.content.split(':')
+    const action = parts[1]
+    let text = ''
+    const actorName = message.sender?.name || 'Thành viên'
+    if (action === 'joined') {
+      text = `${actorName} đã tham gia nhóm`
+    } else if (action === 'left') {
+      text = `${actorName} đã rời khỏi nhóm`
+    } else if (action === 'added') {
+      text = `${actorName} đã thêm ${parts[3] || 'thành viên'} vào nhóm`
+    } else if (action === 'removed') {
+      text = `${actorName} đã xóa ${parts[3] || 'thành viên'} khỏi nhóm`
+    } else if (action === 'custom') {
+      text = parts.slice(2).join(':')
+    } else {
+      text = message.content
+    }
+
+    return (
+      <div className="flex justify-center my-2 w-full select-none">
+        <span className="bg-muted px-4 py-1.5 rounded-full text-xs text-muted-foreground border shadow-sm max-w-[90%] text-center">
+          {text}
+        </span>
+      </div>
+    )
+  }
+
   const isOwn = message.senderId === currentUserId
   const showAvatar =
     !isOwn && (!previous || previous.senderId !== message.senderId)
@@ -218,12 +247,12 @@ export default function MessageRow({
             {/* Pin / Star badges */}
             {(message.isPinned || message.isStarred) && (
               <div className={cn('flex gap-1 mt-0.5', isOwn ? 'justify-end' : 'justify-start')}>
-                {message.isPinned && (
+                {Boolean(message.isPinned) && (
                   <span className="flex items-center gap-0.5 text-[10px] text-amber-500">
                     <Pin className="w-2.5 h-2.5" /> Đã ghim
                   </span>
                 )}
-                {message.isStarred && (
+                {Boolean(message.isStarred) && (
                   <span className="flex items-center gap-0.5 text-[10px] text-yellow-500">
                     <Star className="w-2.5 h-2.5" /> Đã đánh dấu
                   </span>
