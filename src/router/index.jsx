@@ -6,6 +6,12 @@ import RegisterPage from '../pages/RegisterPage'
 import VerifyEmailPage from '../pages/VerifyEmailPage'
 import ForgotPasswordPage from '../pages/ForgotPasswordPage'
 import ResetPasswordPage from '../pages/ResetPasswordPage'
+import ChatPage from '../pages/ChatPage'
+import ProfilePage from '../pages/ProfilePage'
+import FriendsPage from '../pages/FriendsPage'
+import CloudPage from '../pages/CloudPage'
+import AiPage from '../pages/AiPage'
+import JoinPage from '../pages/JoinPage'
 import AdminPage from '../pages/AdminPage'
 import AdminUsersPage from '../pages/AdminUsersPage'
 import AdminReportsPage from '../pages/AdminReportsPage'
@@ -28,8 +34,7 @@ function ProtectedRoute() {
 function AdminRoute() {
   const user = tokenStorage.getUser()
   if (!user?.isAdmin) {
-    authService.logout()
-    return <Navigate to="/login" replace />
+    return <Navigate to="/chat" replace />
   }
   return <Outlet />
 }
@@ -40,6 +45,15 @@ function PublicOnlyRoute() {
     // Allow authenticated-but-unverified users through to /verify-email
     const user = tokenStorage.getUser()
     if (user && !user.verifiedAt) return <Outlet />
+    if (user?.isAdmin) return <Navigate to="/admin" replace />
+    return <Navigate to="/chat" replace />
+  }
+  return <Outlet />
+}
+
+function UserOnlyRoute() {
+  const user = tokenStorage.getUser()
+  if (user?.isAdmin) {
     return <Navigate to="/admin" replace />
   }
   return <Outlet />
@@ -48,11 +62,7 @@ function PublicOnlyRoute() {
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <Navigate to="/admin" replace />,
-  },
-  {
-    path: '*',
-    element: <Navigate to="/admin" replace />,
+    element: <Navigate to="/login" replace />,
   },
   {
     element: <PublicOnlyRoute />,
@@ -72,6 +82,26 @@ const router = createBrowserRouter([
   {
     element: <ProtectedRoute />,
     children: [
+      {
+        element: <UserOnlyRoute />,
+        children: [
+          {
+            element: <MainLayout />,
+            children: [
+              { path: '/chat', element: <ChatPage /> },
+              // Draft chat with a user — no conversation exists server-side
+              // yet; one is created when the first message is sent.
+              { path: '/chat/new/:userId', element: <ChatPage /> },
+              { path: '/chat/:conversationId', element: <ChatPage /> },
+              { path: '/profile', element: <ProfilePage /> },
+              { path: '/friends', element: <FriendsPage /> },
+              { path: '/cloud', element: <CloudPage /> },
+              { path: '/ai', element: <AiPage /> },
+              { path: '/join/:code', element: <JoinPage /> },
+            ],
+          },
+        ],
+      },
       {
         element: <AdminRoute />,
         children: [
