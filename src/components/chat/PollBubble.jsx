@@ -132,12 +132,12 @@ export default function PollBubble({ poll, isOwn, currentUserId, onUpdated }) {
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Bình chọn
               </p>
-              {local.isClosed && (
+              {Boolean(local.isClosed) && (
                 <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                   <Lock className="w-2.5 h-2.5" /> Đã đóng
                 </span>
               )}
-              {!local.isClosed && local.allowMultiple && (
+              {!local.isClosed && Boolean(local.allowMultiple) && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
                   Nhiều lựa chọn
                 </span>

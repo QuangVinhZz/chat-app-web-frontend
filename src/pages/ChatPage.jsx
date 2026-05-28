@@ -341,9 +341,14 @@ export default function ChatPage() {
       }),
       socketService.on('poll:updated', (poll) => {
         if (!poll?.id) return
-        setMessages((prev) =>
-          prev.map((m) => (m.poll && m.poll.id === poll.id ? { ...m, poll } : m))
-        )
+        setMessages((prev) => {
+          const index = prev.findIndex((m) => m.poll && m.poll.id === poll.id)
+          if (index === -1) return prev
+          const next = [...prev]
+          const msg = next.splice(index, 1)[0]
+          next.push({ ...msg, poll })
+          return next
+        })
       }),
       socketService.on('conversation:read', (payload) => {
         if (!payload || payload.conversationId !== convId) return
