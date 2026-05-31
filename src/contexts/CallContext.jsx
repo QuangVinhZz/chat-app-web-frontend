@@ -18,7 +18,7 @@ export const CallProvider = ({ children }) => {
   // States
   const [callState, setCallState] = useState('idle'); // idle, incoming, outgoing, connected, group-connected
   const [activeCall, setActiveCall] = useState(null); // { isGroup, conversationId, type, from/to, name, avatar }
-  
+
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null); // Single 1-1
   const [remoteStreams, setRemoteStreams] = useState({}); // Group { [userId]: stream }
@@ -34,11 +34,11 @@ export const CallProvider = ({ children }) => {
 
   // WebRTC Refs
   const localStreamRef = useRef(null);
-  
+
   // 1-to-1 Refs
   const peerConnectionRef = useRef(null);
   const remoteIceCandidatesQueue = useRef([]);
-  
+
   // Group Refs
   const peerConnectionsRef = useRef({}); // { [userId]: RTCPeerConnection }
   const groupIceQueuesRef = useRef({}); // { [userId]: candidate[] }
@@ -168,16 +168,16 @@ export const CallProvider = ({ children }) => {
 
   const acceptCall = async () => {
     if (callStateRef.current !== 'incoming' || !activeCallRef.current) return;
-    
+
     // Group call accept logic
     if (activeCallRef.current.isGroup) {
-       joinGroupCall(activeCallRef.current.conversationId, activeCallRef.current.type);
-       return;
+      joinGroupCall(activeCallRef.current.conversationId, activeCallRef.current.type);
+      return;
     }
 
     setCallState('connected');
     connectedAtRef.current = Date.now();
-    
+
     const callData = activeCallRef.current;
     const stream = await getMediaStream(callData.type);
     if (!stream) { rejectCall(); return; }
@@ -220,7 +220,7 @@ export const CallProvider = ({ children }) => {
     try {
       const user = await userService.getPublicProfile(userId);
       if (user) setParticipants(p => ({ ...p, [userId]: { name: user.name, avatar: user.avatarUrl } }));
-    } catch(e) {}
+    } catch (e) { }
   };
 
   const initGroupPeer = (targetUserId, conversationId) => {
@@ -242,10 +242,10 @@ export const CallProvider = ({ children }) => {
     pc.onicecandidate = (event) => {
       if (event.candidate) {
         socketService.emit('group-call:signal', {
-           targetUserId,
-           conversationId,
-           fromUserId: currentUser?.id,
-           payload: { type: 'ice-candidate', candidate: event.candidate }
+          targetUserId,
+          conversationId,
+          fromUserId: currentUser?.id,
+          payload: { type: 'ice-candidate', candidate: event.candidate }
         });
       }
     };
@@ -264,7 +264,7 @@ export const CallProvider = ({ children }) => {
     setCallState('group-connected');
     callStateRef.current = 'group-connected';
     connectedAtRef.current = Date.now();
-    
+
     // Broadcast ring to everyone
     socketService.emit('group-call:ring', { conversationId, type, fromUserId: currentUser?.id });
     // Tell users we joined so they call us
@@ -273,21 +273,21 @@ export const CallProvider = ({ children }) => {
 
   const joinGroupCall = async (conversationId, type = 'audio') => {
     if (callStateRef.current !== 'idle' && callStateRef.current !== 'incoming') {
-       resetCallState({ avoidLogging: true });
+      resetCallState({ avoidLogging: true });
     }
-    
+
     // Default to audio for seamless drop-ins unless specified otherwise
-    const stream = await getMediaStream(type); 
+    const stream = await getMediaStream(type);
     if (!stream) return;
 
     const newActiveCall = { conversationId, type, isCaller: false, name: 'Group Call', isGroup: true };
     setActiveCall(newActiveCall);
-    activeCallRef.current = newActiveCall; 
-    
+    activeCallRef.current = newActiveCall;
+
     setCallState('group-connected');
     callStateRef.current = 'group-connected';
     connectedAtRef.current = Date.now();
-    
+
     socketService.emit('group-call:join', { conversationId, fromUserId: currentUser?.id });
   };
 
@@ -334,8 +334,8 @@ export const CallProvider = ({ children }) => {
       // Direct Signaling
       socketService.on('call:incoming', (payload) => {
         if (callStateRef.current !== 'idle') {
-           socketService.emit('call:reject', { to: payload.from, conversationId: payload.conversationId });
-           return;
+          socketService.emit('call:reject', { to: payload.from, conversationId: payload.conversationId });
+          return;
         }
         remoteIceCandidatesQueue.current = [];
         setActiveCall({ from: payload.from, offer: payload.offer, type: payload.type, conversationId: payload.conversationId, isCaller: false, isGroup: false });
@@ -348,141 +348,141 @@ export const CallProvider = ({ children }) => {
         const pc = peerConnectionRef.current;
         if (callStateRef.current === 'outgoing' && pc) {
           try {
-             await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
-             setCallState('connected');
-             connectedAtRef.current = Date.now();
-             while(remoteIceCandidatesQueue.current.length > 0) {
-               await pc.addIceCandidate(new RTCIceCandidate(remoteIceCandidatesQueue.current.shift()));
-             }
-          } catch(e) {}
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+            setCallState('connected');
+            connectedAtRef.current = Date.now();
+            while (remoteIceCandidatesQueue.current.length > 0) {
+              await pc.addIceCandidate(new RTCIceCandidate(remoteIceCandidatesQueue.current.shift()));
+            }
+          } catch (e) { }
         }
       }),
       socketService.on('call:ice-candidate', async (payload) => {
         if (!payload.candidate) return;
         const pc = peerConnectionRef.current;
         if (pc && pc.remoteDescription && pc.remoteDescription.type) {
-           pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(console.error);
+          pc.addIceCandidate(new RTCIceCandidate(payload.candidate)).catch(console.error);
         } else {
-           remoteIceCandidatesQueue.current.push(payload.candidate);
+          remoteIceCandidatesQueue.current.push(payload.candidate);
         }
       }),
       socketService.on('call:reject', resetCallState),
 
       // Group Signaling
       socketService.on('group-call:ring', (payload) => {
-         // Prevent ringing if we rang ourselves or are already busy
-         if (payload.fromUserId === currentUser?.id || callStateRef.current !== 'idle') return;
-         
-         setActiveCall({ 
-            conversationId: payload.conversationId, 
-            type: payload.type, 
-            isCaller: false, 
-            isGroup: true,
-            name: 'Group Call',
-            from: payload.fromUserId
-         });
-         setCallState('incoming');
-         
-         // Try to fetch caller profile
-         if (payload.fromUserId) {
-            userService.getPublicProfile(payload.fromUserId).then(user => {
-              if (user) setActiveCall(prev => prev && prev.isGroup ? { ...prev, avatar: user.avatarUrl } : prev);
-            }).catch(() => {});
-         }
+        // Prevent ringing if we rang ourselves or are already busy
+        if (payload.fromUserId === currentUser?.id || callStateRef.current !== 'idle') return;
+
+        setActiveCall({
+          conversationId: payload.conversationId,
+          type: payload.type,
+          isCaller: false,
+          isGroup: true,
+          name: 'Group Call',
+          from: payload.fromUserId
+        });
+        setCallState('incoming');
+
+        // Try to fetch caller profile
+        if (payload.fromUserId) {
+          userService.getPublicProfile(payload.fromUserId).then(user => {
+            if (user) setActiveCall(prev => prev && prev.isGroup ? { ...prev, avatar: user.avatarUrl } : prev);
+          }).catch(() => { });
+        }
       }),
       socketService.on('group-call:join', async (payload) => {
-         const { conversationId, fromUserId } = payload;
-         const currentState = callStateRef.current;
-         const currentCall = activeCallRef.current;
-         
-         if (!fromUserId) return;
-         if (currentState !== 'group-connected' || currentCall?.conversationId !== conversationId) return;
-         if (fromUserId === currentUser?.id) return;
-         
-         const pc = initGroupPeer(fromUserId, conversationId);
-         if (!pc) return;
-         try {
-           const offer = await pc.createOffer();
-           await pc.setLocalDescription(offer);
-           socketService.emit('group-call:signal', {
+        const { conversationId, fromUserId } = payload;
+        const currentState = callStateRef.current;
+        const currentCall = activeCallRef.current;
+
+        if (!fromUserId) return;
+        if (currentState !== 'group-connected' || currentCall?.conversationId !== conversationId) return;
+        if (fromUserId === currentUser?.id) return;
+
+        const pc = initGroupPeer(fromUserId, conversationId);
+        if (!pc) return;
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socketService.emit('group-call:signal', {
+            targetUserId: fromUserId,
+            conversationId,
+            fromUserId: currentUser?.id,
+            payload: { type: 'offer', sdp: offer.sdp }
+          });
+        } catch (e) { console.error("Mesh Offer Error", e); }
+      }),
+      socketService.on('group-call:signal', async (payload) => {
+        // Because BE broadcasts to room, make sure we only process if targetUserId matches us
+        const targetUserId = payload.targetUserId || payload.to;
+        if (!targetUserId || targetUserId !== currentUser?.id) return;
+
+        const { fromUserId, conversationId, payload: signal } = payload;
+        if (!fromUserId) return;
+        if (callStateRef.current !== 'group-connected' || activeCallRef.current?.conversationId !== conversationId) return;
+
+        const pc = initGroupPeer(fromUserId, conversationId);
+        if (!pc) return;
+
+        try {
+          if (signal.type === 'offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socketService.emit('group-call:signal', {
               targetUserId: fromUserId,
               conversationId,
               fromUserId: currentUser?.id,
-              payload: { type: 'offer', sdp: offer.sdp }
-           });
-         } catch(e) { console.error("Mesh Offer Error", e); }
-      }),
-      socketService.on('group-call:signal', async (payload) => {
-         // Because BE broadcasts to room, make sure we only process if targetUserId matches us
-         const targetUserId = payload.targetUserId || payload.to;
-         if (!targetUserId || targetUserId !== currentUser?.id) return; 
-         
-         const { fromUserId, conversationId, payload: signal } = payload;
-         if (!fromUserId) return;
-         if (callStateRef.current !== 'group-connected' || activeCallRef.current?.conversationId !== conversationId) return;
-
-         const pc = initGroupPeer(fromUserId, conversationId);
-         if (!pc) return;
-
-         try {
-           if (signal.type === 'offer') {
-             await pc.setRemoteDescription(new RTCSessionDescription(signal));
-             const answer = await pc.createAnswer();
-             await pc.setLocalDescription(answer);
-             socketService.emit('group-call:signal', {
-               targetUserId: fromUserId,
-               conversationId,
-               fromUserId: currentUser?.id,
-               payload: { type: 'answer', sdp: answer.sdp }
-             });
-             let queue = groupIceQueuesRef.current[fromUserId] || [];
-             while(queue.length > 0) { await pc.addIceCandidate(new RTCIceCandidate(queue.shift())); }
-           } else if (signal.type === 'answer') {
-             await pc.setRemoteDescription(new RTCSessionDescription(signal));
-             let queue = groupIceQueuesRef.current[fromUserId] || [];
-             while(queue.length > 0) { await pc.addIceCandidate(new RTCIceCandidate(queue.shift())); }
-           } else if (signal.type === 'ice-candidate') {
-             if (pc.remoteDescription && pc.remoteDescription.type) {
-                await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
-             } else {
-                groupIceQueuesRef.current[fromUserId] = groupIceQueuesRef.current[fromUserId] || [];
-                groupIceQueuesRef.current[fromUserId].push(signal.candidate);
-             }
-           }
-         } catch(e) { console.error("Signal specific error", e); }
+              payload: { type: 'answer', sdp: answer.sdp }
+            });
+            let queue = groupIceQueuesRef.current[fromUserId] || [];
+            while (queue.length > 0) { await pc.addIceCandidate(new RTCIceCandidate(queue.shift())); }
+          } else if (signal.type === 'answer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal));
+            let queue = groupIceQueuesRef.current[fromUserId] || [];
+            while (queue.length > 0) { await pc.addIceCandidate(new RTCIceCandidate(queue.shift())); }
+          } else if (signal.type === 'ice-candidate') {
+            if (pc.remoteDescription && pc.remoteDescription.type) {
+              await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            } else {
+              groupIceQueuesRef.current[fromUserId] = groupIceQueuesRef.current[fromUserId] || [];
+              groupIceQueuesRef.current[fromUserId].push(signal.candidate);
+            }
+          }
+        } catch (e) { console.error("Signal specific error", e); }
       }),
       socketService.on('group-call:leave', (payload) => {
-         const { fromUserId } = payload;
-         if (!fromUserId) return;
-         
-         // Cancel ringing if the caller gave up
-         if (callStateRef.current === 'incoming' && activeCallRef.current?.from === fromUserId) {
-             resetCallState();
-             return;
-         }
+        const { fromUserId } = payload;
+        if (!fromUserId) return;
 
-         if (peerConnectionsRef.current[fromUserId]) {
-           peerConnectionsRef.current[fromUserId].close();
-           delete peerConnectionsRef.current[fromUserId];
-           setRemoteStreams(prev => { const n = {...prev}; delete n[fromUserId]; return n; });
-           setParticipants(prev => { const n = {...prev}; delete n[fromUserId]; return n; });
-           setParticipantCameraOff(prev => { const n = {...prev}; delete n[fromUserId]; return n; });
-           
-           // Auto disconnect if we are the only one left in the room
-           if (Object.keys(peerConnectionsRef.current).length === 0 && callStateRef.current === 'group-connected') {
-               endCall();
-           }
-         }
+        // Cancel ringing if the caller gave up
+        if (callStateRef.current === 'incoming' && activeCallRef.current?.from === fromUserId) {
+          resetCallState();
+          return;
+        }
+
+        if (peerConnectionsRef.current[fromUserId]) {
+          peerConnectionsRef.current[fromUserId].close();
+          delete peerConnectionsRef.current[fromUserId];
+          setRemoteStreams(prev => { const n = { ...prev }; delete n[fromUserId]; return n; });
+          setParticipants(prev => { const n = { ...prev }; delete n[fromUserId]; return n; });
+          setParticipantCameraOff(prev => { const n = { ...prev }; delete n[fromUserId]; return n; });
+
+          // Auto disconnect if we are the only one left in the room
+          if (Object.keys(peerConnectionsRef.current).length === 0 && callStateRef.current === 'group-connected') {
+            endCall();
+          }
+        }
       }),
       socketService.on('call:camera-toggle', (payload) => {
-         const { fromUserId, isCameraOff: cameraOff } = payload;
-         if (!fromUserId || fromUserId === currentUser?.id) return;
-         setParticipantCameraOff(prev => ({ ...prev, [fromUserId]: cameraOff }));
+        const { fromUserId, isCameraOff: cameraOff } = payload;
+        if (!fromUserId || fromUserId === currentUser?.id) return;
+        setParticipantCameraOff(prev => ({ ...prev, [fromUserId]: cameraOff }));
       }),
       socketService.on('group-call:camera-state', (payload) => {
-         const { fromUserId, cameraOff } = payload;
-         if (!fromUserId || fromUserId === currentUser?.id) return;
-         setParticipantCameraOff(prev => ({ ...prev, [fromUserId]: !!cameraOff }));
+        const { fromUserId, cameraOff } = payload;
+        if (!fromUserId || fromUserId === currentUser?.id) return;
+        setParticipantCameraOff(prev => ({ ...prev, [fromUserId]: !!cameraOff }));
       })
     ];
     return () => offs.forEach(off => off?.());

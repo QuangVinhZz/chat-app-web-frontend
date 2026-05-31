@@ -209,11 +209,11 @@ export default function ConversationInfoPanel({
   // Lọc media, file, link từ messages
   const mediaAttachments = useMemo(() =>
     messages.flatMap((m) => (m.attachments ?? []).filter((a) => a.type === 'image' || a.type === 'video'))
-    , [messages])
+  , [messages])
 
   const fileAttachments = useMemo(() =>
     messages.flatMap((m) => (m.attachments ?? []).filter((a) => a.type === 'document' || a.type === 'audio'))
-    , [messages])
+  , [messages])
 
   const links = useMemo(() => {
     const urlRegex = /https?:\/\/[^\s]+/g
@@ -346,10 +346,10 @@ export default function ConversationInfoPanel({
                 />
               </>
             ) : (
-              <ActionBtn
-                icon={Users}
-                label="Tạo nhóm trò chuyện"
-                onClick={() => setShowNewConv(true)}
+              <ActionBtn 
+                icon={Users} 
+                label="Tạo nhóm trò chuyện" 
+                onClick={() => setShowNewConv(true)} 
               />
             )}
           </div>
@@ -434,13 +434,13 @@ export default function ConversationInfoPanel({
                         const user = member.user || member
                         const userName = user.fullName || user.full_name || user.name || 'Unknown'
                         const userAvatar = user.avatarUrl || user.avatar_url || null
-
+                        
                         return (
                           <div key={member.id || user.id} className="flex items-center gap-2.5 py-1.5">
                             <Avatar className="h-10 w-10 rounded-full shrink-0">
-                              <AvatarImage
+                              <AvatarImage 
                                 src={userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`}
-                                alt={userName}
+                                alt={userName} 
                               />
                               <AvatarFallback className="bg-primary/20 text-primary text-sm">
                                 {getInitials(userName)}
@@ -491,7 +491,7 @@ export default function ConversationInfoPanel({
               >
                 <UsersRound className="w-5 h-5 text-muted-foreground shrink-0" />
                 <span className="text-sm flex-1 text-left">
-                  {commonGroups.length > 0 ? `${commonGroups.length} nhóm chung` : 'Nhóm tham gia'}
+                  {commonGroups.length > 0 ? `${commonGroups.length} nhóm chung` : 'Nhóm chung'}
                 </span>
                 <ChevronRight className={cn(
                   'w-4 h-4 text-muted-foreground transition-transform',
@@ -502,7 +502,7 @@ export default function ConversationInfoPanel({
                 <div className="px-4 pb-3">
                   {commonGroups.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-3">
-                      Không có nhóm tham gia nào.
+                      Không có nhóm chung nào.
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -625,8 +625,8 @@ export default function ConversationInfoPanel({
                   <p className="text-xs text-muted-foreground">
                     {autoDeleteValue === 'never' ? 'Không bao giờ'
                       : autoDeleteValue === '1d' ? '1 ngày'
-                        : autoDeleteValue === '7d' ? '7 ngày'
-                          : '14 ngày'}
+                      : autoDeleteValue === '7d' ? '7 ngày'
+                      : '14 ngày'}
                   </p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />

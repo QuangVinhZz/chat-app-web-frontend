@@ -104,4 +104,13 @@ export const userService = {
     const data = await apiClient.get(`/users/${userUuid}`)
     return data?.user ?? null
   },
+
+  // --- push notification device tokens --------------------------------------
+  async registerDeviceToken(token, platform = 'web') {
+    return apiClient.post('/user/device-tokens', { token, platform })
+  },
+
+  async unregisterDeviceToken(token) {
+    return apiClient.delete('/user/device-tokens', { body: { token } })
+  },
 }

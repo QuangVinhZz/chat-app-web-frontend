@@ -1,5 +1,8 @@
 import { socketService } from './socketService'
 import { notifyAdd } from '../stores/notificationsStore'
+import { messaging } from '../utils/firebase'
+import { getToken, onMessage } from 'firebase/messaging'
+import { userService } from './userService'
 
 /**
  * Frontend notification wiring.
@@ -26,6 +29,25 @@ async function maybeRequestPermission() {
       await Notification.requestPermission()
     } catch {
       // Ignore — some browsers throw on secondary requests.
+    }
+  }
+
+  // Nếu người dùng cấp quyền hoặc đã cấp quyền trước đó, lấy FCM token
+  if (Notification.permission === 'granted' && messaging) {
+    try {
+      const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+      if (vapidKey) {
+        const currentToken = await getToken(messaging, { vapidKey });
+        if (currentToken) {
+          // Gửi token lên backend
+          await userService.registerDeviceToken(currentToken, 'web');
+          console.log('[notificationService] Đăng ký FCM token thành công.');
+        } else {
+          console.warn('[notificationService] Không có registration token.');
+        }
+      }
+    } catch (err) {
+      console.error('[notificationService] Lỗi khi lấy FCM token:', err);
     }
   }
 }
@@ -87,6 +109,22 @@ export const notificationService = {
         })
       })
     )
+
+    // Lắng nghe Firebase Cloud Messaging khi app đang mở
+    if (messaging) {
+      const unsubscribeFCM = onMessage(messaging, (payload) => {
+        console.log('[notificationService] Nhận thông báo Firebase (foreground):', payload);
+        const notification = {
+          type: payload.data?.type || 'fcm_message',
+          title: payload.notification?.title || 'Thông báo mới',
+          body: payload.notification?.body || '',
+          avatarUrl: payload.data?.avatarUrl || null,
+          href: payload.data?.href || null,
+        }
+        push(notification);
+      });
+      unsubs.push(unsubscribeFCM);
+    }
   },
 
   stop() {
